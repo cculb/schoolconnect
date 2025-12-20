@@ -392,7 +392,15 @@ validate-ground-truth:
     - .python-base
     - .manual-job
   stage: test-e2e
+  needs:
+    - job: run-full-e2e
+      artifacts: true
   script:
+    - |
+      if [ ! -f powerschool.db ]; then
+        echo "ERROR: Database not found. Run 'run-full-e2e' job first to populate the database."
+        exit 1
+      fi
     - python scripts/validate_ground_truth.py
   rules:
     - if: $CI_COMMIT_BRANCH
