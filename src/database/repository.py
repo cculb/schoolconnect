@@ -129,7 +129,7 @@ class Repository:
                 """,
                 (powerschool_id, first_name, last_name, grade_level, school_name),
             )
-            return cursor.fetchone()["id"]
+            return int(cursor.fetchone()["id"])
 
     # ==================== COURSES ====================
 
@@ -162,7 +162,25 @@ class Repository:
         term: Optional[str] = None,
         powerschool_frn: Optional[str] = None,
     ) -> int:
-        """Insert or update a course. Returns course ID."""
+        """Insert or update a course record.
+
+        Uses UPSERT based on (student_id, course_name, expression, term)
+        unique constraint.
+
+        Args:
+            student_id: The student's database ID.
+            course_name: Name of the course.
+            expression: Period/time expression (e.g., "1(A)" or "3(B)").
+            room: Room number or name.
+            teacher_name: Name of the teacher.
+            teacher_email: Teacher's email address.
+            course_section: Section identifier.
+            term: Academic term (e.g., "Q1", "S1", "Year").
+            powerschool_frn: PowerSchool FRN identifier for API access.
+
+        Returns:
+            The database ID of the inserted or updated course.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -190,7 +208,7 @@ class Repository:
                     powerschool_frn,
                 ),
             )
-            return cursor.fetchone()["id"]
+            return int(cursor.fetchone()["id"])
 
     # ==================== GRADES ====================
 
@@ -205,7 +223,21 @@ class Repository:
         absences: int = 0,
         tardies: int = 0,
     ) -> int:
-        """Add a grade record. Returns grade ID."""
+        """Add a grade record for a student's course.
+
+        Args:
+            course_id: The course's database ID.
+            student_id: The student's database ID.
+            term: Academic term (e.g., "Q1", "Q2", "S1").
+            letter_grade: Letter grade (e.g., "A", "B+", "C-").
+            percent: Percentage grade (0.0 to 100.0).
+            gpa_points: GPA points (typically 0.0 to 4.0).
+            absences: Number of absences for this course.
+            tardies: Number of tardies for this course.
+
+        Returns:
+            The database ID of the inserted grade record.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -216,10 +248,17 @@ class Repository:
                 """,
                 (course_id, student_id, term, letter_grade, percent, gpa_points, absences, tardies),
             )
-            return cursor.fetchone()["id"]
+            return int(cursor.fetchone()["id"])
 
     def get_current_grades(self, student_id: int) -> List[Dict]:
-        """Get current grades for a student (from view)."""
+        """Get current grades for a student from the v_current_grades view.
+
+        Args:
+            student_id: The student's database ID.
+
+        Returns:
+            List of grade dictionaries with course and grade info.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT * FROM v_current_grades WHERE student_id = ?", (student_id,)
@@ -227,7 +266,17 @@ class Repository:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_grade_trends(self, student_id: int) -> List[Dict]:
-        """Get grade trends for a student (from view)."""
+        """Get grade trends for a student from the v_grade_trends view.
+
+        Shows grade changes over time to identify improving or declining
+        performance.
+
+        Args:
+            student_id: The student's database ID.
+
+        Returns:
+            List of trend dictionaries showing grade progression.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT * FROM v_grade_trends WHERE student_id = ?", (student_id,)
@@ -253,7 +302,27 @@ class Repository:
         codes: Optional[str] = None,
         term: Optional[str] = None,
     ) -> int:
-        """Add an assignment. Returns assignment ID."""
+        """Add an assignment record.
+
+        Args:
+            student_id: The student's database ID.
+            course_name: Name of the course.
+            assignment_name: Name of the assignment.
+            course_id: Optional course database ID.
+            teacher_name: Teacher's name.
+            category: Assignment category (e.g., "Homework", "Test").
+            due_date: Due date in YYYY-MM-DD format.
+            score: Raw score (may include "/" for fractions).
+            max_score: Maximum possible score.
+            percent: Percentage grade.
+            letter_grade: Letter grade.
+            status: Status string ("Missing", "Collected", "Unknown").
+            codes: Additional status codes from PowerSchool.
+            term: Academic term.
+
+        Returns:
+            The database ID of the inserted assignment.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -280,7 +349,7 @@ class Repository:
                     term,
                 ),
             )
-            return cursor.fetchone()["id"]
+            return int(cursor.fetchone()["id"])
 
     def get_assignments(
         self,
@@ -288,7 +357,16 @@ class Repository:
         course_name: Optional[str] = None,
         status: Optional[str] = None,
     ) -> List[Dict]:
-        """Get assignments with optional filters."""
+        """Get assignments with optional filters.
+
+        Args:
+            student_id: The student's database ID.
+            course_name: Optional filter by course name (partial match).
+            status: Optional filter by status (exact match).
+
+        Returns:
+            List of assignment dictionaries, ordered by due date descending.
+        """
         query = "SELECT * FROM assignments WHERE student_id = ?"
         params: List[Any] = [student_id]
 
@@ -307,7 +385,15 @@ class Repository:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_missing_assignments(self, student_id: Optional[int] = None) -> List[Dict]:
-        """Get missing assignments (from view)."""
+        """Get missing assignments from the v_missing_assignments view.
+
+        Args:
+            student_id: Optional filter by student ID. If None, returns
+                        missing assignments for all students.
+
+        Returns:
+            List of missing assignment dictionaries.
+        """
         with get_db(self.db_path) as conn:
             if student_id:
                 cursor = conn.execute(
@@ -318,7 +404,17 @@ class Repository:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_upcoming_assignments(self, student_id: int, days: int = 14) -> List[Dict]:
-        """Get upcoming assignments."""
+        """Get assignments due within a specified number of days.
+
+        Excludes assignments already marked as "Collected".
+
+        Args:
+            student_id: The student's database ID.
+            days: Number of days to look ahead (default 14).
+
+        Returns:
+            List of upcoming assignment dictionaries, ordered by due date.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -333,8 +429,15 @@ class Repository:
             )
             return [dict(row) for row in cursor.fetchall()]
 
-    def clear_assignments(self, student_id: int):
-        """Clear all assignments for a student (before re-sync)."""
+    def clear_assignments(self, student_id: int) -> None:
+        """Clear all assignments for a student.
+
+        Typically called before re-syncing assignments from PowerSchool
+        to avoid duplicates.
+
+        Args:
+            student_id: The student's database ID.
+        """
         with get_db(self.db_path) as conn:
             conn.execute("DELETE FROM assignments WHERE student_id = ?", (student_id,))
 
@@ -352,7 +455,22 @@ class Repository:
         total_days: int = 0,
         term: str = "YTD",
     ) -> int:
-        """Add attendance summary. Returns ID."""
+        """Add an attendance summary record for a student.
+
+        Args:
+            student_id: The student's database ID.
+            attendance_rate: Percentage attendance rate (0.0 to 100.0).
+            days_present: Number of days present.
+            days_absent: Total days absent.
+            days_excused: Days with excused absences.
+            days_unexcused: Days with unexcused absences.
+            tardies: Number of tardies.
+            total_days: Total school days in period.
+            term: Term identifier (default "YTD" for year-to-date).
+
+        Returns:
+            The database ID of the inserted attendance record.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -374,10 +492,17 @@ class Repository:
                     total_days,
                 ),
             )
-            return cursor.fetchone()["id"]
+            return int(cursor.fetchone()["id"])
 
     def get_attendance_summary(self, student_id: int) -> Optional[Dict]:
-        """Get latest attendance summary for a student."""
+        """Get the most recent attendance summary for a student.
+
+        Args:
+            student_id: The student's database ID.
+
+        Returns:
+            Attendance summary dictionary if found, None otherwise.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -392,7 +517,14 @@ class Repository:
             return dict(row) if row else None
 
     def get_attendance_alerts(self) -> List[Dict]:
-        """Get attendance alerts (from view)."""
+        """Get attendance alerts from the v_attendance_alerts view.
+
+        Returns students with attendance rates below threshold or
+        excessive absences/tardies.
+
+        Returns:
+            List of alert dictionaries for students needing attention.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute("SELECT * FROM v_attendance_alerts")
             return [dict(row) for row in cursor.fetchall()]
@@ -400,7 +532,16 @@ class Repository:
     # ==================== SCRAPE HISTORY ====================
 
     def start_scrape(self, student_id: Optional[int] = None) -> int:
-        """Record start of a scrape. Returns scrape ID."""
+        """Record the start of a scraping session.
+
+        Creates a scrape_history record with status "running".
+
+        Args:
+            student_id: Optional student ID if scraping for specific student.
+
+        Returns:
+            The database ID of the scrape history record.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -410,7 +551,7 @@ class Repository:
                 """,
                 (student_id,),
             )
-            return cursor.fetchone()["id"]
+            return int(cursor.fetchone()["id"])
 
     def complete_scrape(
         self,
@@ -418,8 +559,17 @@ class Repository:
         status: str = "completed",
         assignments_found: int = 0,
         error_message: Optional[str] = None,
-    ):
-        """Record completion of a scrape."""
+    ) -> None:
+        """Record the completion of a scraping session.
+
+        Updates the scrape_history record with completion time and results.
+
+        Args:
+            scrape_id: The scrape history record ID from start_scrape().
+            status: Final status ("completed", "failed", "partial").
+            assignments_found: Number of assignments found during scrape.
+            error_message: Error message if scrape failed.
+        """
         with get_db(self.db_path) as conn:
             conn.execute(
                 """
@@ -436,7 +586,17 @@ class Repository:
     # ==================== SUMMARIES ====================
 
     def get_student_summary(self, student_id: int) -> Optional[Dict]:
-        """Get student summary (from view)."""
+        """Get a comprehensive summary for a student from v_student_summary.
+
+        Includes grade averages, missing assignments count, attendance rate,
+        and other key metrics.
+
+        Args:
+            student_id: The student's database ID.
+
+        Returns:
+            Summary dictionary if found, None otherwise.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT * FROM v_student_summary WHERE student_id = ?", (student_id,)
@@ -445,7 +605,17 @@ class Repository:
             return dict(row) if row else None
 
     def get_action_items(self, student_id: Optional[int] = None) -> List[Dict]:
-        """Get prioritized action items (from view)."""
+        """Get prioritized action items from v_action_items view.
+
+        Returns items requiring attention such as missing assignments,
+        low grades, and attendance issues.
+
+        Args:
+            student_id: Optional filter by student ID.
+
+        Returns:
+            List of action item dictionaries, prioritized by urgency.
+        """
         with get_db(self.db_path) as conn:
             if student_id:
                 cursor = conn.execute(
@@ -456,7 +626,16 @@ class Repository:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_completion_rates(self, student_id: int) -> List[Dict]:
-        """Get assignment completion rates (from view)."""
+        """Get assignment completion rates from v_assignment_completion_rate.
+
+        Shows completion percentage by course to identify problem areas.
+
+        Args:
+            student_id: The student's database ID.
+
+        Returns:
+            List of completion rate dictionaries by course.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT * FROM v_assignment_completion_rate WHERE student_id = ?", (student_id,)
@@ -466,20 +645,38 @@ class Repository:
     # ==================== TEACHERS ====================
 
     def get_teachers(self) -> List[Dict]:
-        """Get all teachers."""
+        """Get all teachers, ordered by name.
+
+        Returns:
+            List of teacher dictionaries with contact info and notes.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute("SELECT * FROM teachers ORDER BY name")
             return [dict(row) for row in cursor.fetchall()]
 
     def get_teacher_by_name(self, name: str) -> Optional[Dict]:
-        """Get teacher by name (partial match)."""
+        """Find a teacher by partial name match.
+
+        Args:
+            name: Partial or full name to search for.
+
+        Returns:
+            Teacher dictionary if found, None otherwise.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute("SELECT * FROM teachers WHERE name LIKE ?", (f"%{name}%",))
             row = cursor.fetchone()
             return dict(row) if row else None
 
     def get_teacher_by_email(self, email: str) -> Optional[Dict]:
-        """Get teacher by email."""
+        """Find a teacher by exact email match.
+
+        Args:
+            email: Teacher's email address.
+
+        Returns:
+            Teacher dictionary if found, None otherwise.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute("SELECT * FROM teachers WHERE email = ?", (email,))
             row = cursor.fetchone()
@@ -493,7 +690,20 @@ class Repository:
         room: Optional[str] = None,
         courses_taught: Optional[str] = None,
     ) -> int:
-        """Insert or update a teacher. Returns teacher ID."""
+        """Insert or update a teacher record.
+
+        Matches existing teachers by email first, then by name.
+
+        Args:
+            name: Teacher's full name.
+            email: Email address.
+            department: Department name.
+            room: Room number or name.
+            courses_taught: Comma-separated list of courses.
+
+        Returns:
+            The database ID of the inserted or updated teacher.
+        """
         with get_db(self.db_path) as conn:
             # Try to find by email first, then by name
             if email:
@@ -516,7 +726,7 @@ class Repository:
                     """,
                     (name, email, department, room, courses_taught, existing["id"]),
                 )
-                return existing["id"]
+                return int(existing["id"])
             else:
                 cursor = conn.execute(
                     """
@@ -526,10 +736,15 @@ class Repository:
                     """,
                     (name, email, department, room, courses_taught),
                 )
-                return cursor.fetchone()["id"]
+                return int(cursor.fetchone()["id"])
 
-    def update_teacher_notes(self, teacher_id: int, notes: str):
-        """Update notes for a teacher."""
+    def update_teacher_notes(self, teacher_id: int, notes: str) -> None:
+        """Update notes for a teacher.
+
+        Args:
+            teacher_id: The teacher's database ID.
+            notes: Notes text to set.
+        """
         with get_db(self.db_path) as conn:
             conn.execute(
                 "UPDATE teachers SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
@@ -537,7 +752,16 @@ class Repository:
             )
 
     def get_teacher_for_course(self, course_name: str) -> Optional[Dict]:
-        """Get teacher info for a course."""
+        """Find the teacher for a given course.
+
+        Joins teachers with courses by name or email.
+
+        Args:
+            course_name: Partial or full course name.
+
+        Returns:
+            Teacher dictionary if found, None otherwise.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -563,7 +787,20 @@ class Repository:
         context: Optional[str] = None,
         status: str = "draft",
     ) -> int:
-        """Create a new communication draft."""
+        """Create a new communication draft.
+
+        Args:
+            teacher_id: The teacher's database ID.
+            student_id: The student's database ID.
+            type: Communication type ("email", "note", etc.).
+            body: Message body text.
+            subject: Optional email subject line.
+            context: Optional context about why this communication.
+            status: Status ("draft", "sent", "archived").
+
+        Returns:
+            The database ID of the created communication.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -573,7 +810,7 @@ class Repository:
                 """,
                 (teacher_id, student_id, type, subject, body, context, status),
             )
-            return cursor.fetchone()["id"]
+            return int(cursor.fetchone()["id"])
 
     def get_communications(
         self,
@@ -581,7 +818,16 @@ class Repository:
         student_id: Optional[int] = None,
         status: Optional[str] = None,
     ) -> List[Dict]:
-        """Get communications with optional filters."""
+        """Get communications with optional filters.
+
+        Args:
+            teacher_id: Optional filter by teacher.
+            student_id: Optional filter by student.
+            status: Optional filter by status.
+
+        Returns:
+            List of communication dictionaries with teacher/student info.
+        """
         query = """
             SELECT c.*, t.name as teacher_name, t.email as teacher_email,
                    s.first_name as student_name
@@ -609,7 +855,14 @@ class Repository:
             return [dict(row) for row in cursor.fetchall()]
 
     def get_communication(self, communication_id: int) -> Optional[Dict]:
-        """Get a single communication."""
+        """Get a single communication by ID.
+
+        Args:
+            communication_id: The communication's database ID.
+
+        Returns:
+            Communication dictionary with teacher info, or None.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -629,10 +882,17 @@ class Repository:
         subject: Optional[str] = None,
         body: Optional[str] = None,
         status: Optional[str] = None,
-    ):
-        """Update a communication."""
-        updates = []
-        params = []
+    ) -> None:
+        """Update a communication's subject, body, or status.
+
+        Args:
+            communication_id: The communication's database ID.
+            subject: New subject line (optional).
+            body: New body text (optional).
+            status: New status (optional). If "sent", also sets sent_at.
+        """
+        updates: list[str] = []
+        params: list[str | int] = []
 
         if subject is not None:
             updates.append("subject = ?")
@@ -654,8 +914,15 @@ class Repository:
         with get_db(self.db_path) as conn:
             conn.execute(f"UPDATE communications SET {', '.join(updates)} WHERE id = ?", params)
 
-    def mark_communication_sent(self, communication_id: int):
-        """Mark a communication as sent and update teacher contact stats."""
+    def mark_communication_sent(self, communication_id: int) -> None:
+        """Mark a communication as sent and update teacher contact stats.
+
+        Updates the communication status to "sent" and increments the
+        teacher's communication_count and last_contacted date.
+
+        Args:
+            communication_id: The communication's database ID.
+        """
         with get_db(self.db_path) as conn:
             # Get the teacher_id
             cursor = conn.execute(
@@ -690,15 +957,26 @@ class Repository:
                     (teacher_id,),
                 )
 
-    def delete_communication(self, communication_id: int):
-        """Delete a communication."""
+    def delete_communication(self, communication_id: int) -> None:
+        """Delete a communication record.
+
+        Args:
+            communication_id: The communication's database ID.
+        """
         with get_db(self.db_path) as conn:
             conn.execute("DELETE FROM communications WHERE id = ?", (communication_id,))
 
     # ==================== COMMUNICATION TEMPLATES ====================
 
     def get_communication_templates(self, type: Optional[str] = None) -> List[Dict]:
-        """Get communication templates."""
+        """Get communication templates.
+
+        Args:
+            type: Optional filter by template type (e.g., "email").
+
+        Returns:
+            List of template dictionaries.
+        """
         with get_db(self.db_path) as conn:
             if type:
                 cursor = conn.execute(
@@ -715,7 +993,17 @@ class Repository:
         body_template: str,
         subject_template: Optional[str] = None,
     ) -> int:
-        """Add a communication template."""
+        """Add a communication template.
+
+        Args:
+            name: Template name for identification.
+            type: Template type (e.g., "email", "note").
+            body_template: Message body with optional placeholders.
+            subject_template: Optional subject line template.
+
+        Returns:
+            The database ID of the created template.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -725,7 +1013,7 @@ class Repository:
                 """,
                 (name, type, subject_template, body_template),
             )
-            return cursor.fetchone()["id"]
+            return int(cursor.fetchone()["id"])
 
     # ==================== RAW QUERIES ====================
 
@@ -817,7 +1105,15 @@ _repo: Optional[Repository] = None
 
 
 def get_repository(db_path: Optional[Path] = None) -> Repository:
-    """Get the repository instance."""
+    """Get or create the singleton Repository instance.
+
+    Args:
+        db_path: Optional database path. If provided and different from
+                 the current instance, creates a new Repository.
+
+    Returns:
+        The Repository singleton instance.
+    """
     global _repo
     if _repo is None or (db_path and db_path != _repo.db_path):
         _repo = Repository(db_path)
