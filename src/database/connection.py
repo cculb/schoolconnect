@@ -250,14 +250,10 @@ def verify_database(db_path: Optional[Path] = None) -> dict:
 
     try:
         with get_db(path) as conn:
-            cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-            )
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
             tables = [row["name"] for row in cursor.fetchall()]
 
-            cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='view' ORDER BY name"
-            )
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='view' ORDER BY name")
             views = [row["name"] for row in cursor.fetchall()]
 
             # Get row counts (validate table names to prevent injection)
@@ -267,9 +263,8 @@ def verify_database(db_path: Optional[Path] = None) -> dict:
                 # Extra validation: ensure table name is alphanumeric/underscore only
                 if table.replace("_", "").isalnum():
                     cursor = conn.execute(
-                        "SELECT COUNT(*) as cnt FROM sqlite_master "
-                        "WHERE type='table' AND name=?",
-                        (table,)
+                        "SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table' AND name=?",
+                        (table,),
                     )
                     if cursor.fetchone()["cnt"] > 0:
                         # Safe to query - table exists and name is validated

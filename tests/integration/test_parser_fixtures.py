@@ -97,9 +97,7 @@ class TestAttendanceParserWithFixtures:
         assert isinstance(attendance, dict)
         assert "rate" in attendance or "attendance_rate" in attendance
 
-    def test_attendance_rate_matches_ground_truth(
-        self, raw_html_dir: Path, ground_truth: dict
-    ):
+    def test_attendance_rate_matches_ground_truth(self, raw_html_dir: Path, ground_truth: dict):
         """Parsed attendance rate matches ground truth."""
         for filename in ["attendance_dashboard.html", "attendance.html"]:
             attendance_file = raw_html_dir / filename
@@ -151,9 +149,7 @@ class TestScheduleParserWithFixtures:
         assert isinstance(courses, list)
         assert len(courses) > 0
 
-    def test_course_count_matches_expected(
-        self, raw_html_dir: Path, ground_truth: dict
-    ):
+    def test_course_count_matches_expected(self, raw_html_dir: Path, ground_truth: dict):
         """Parsed course count meets minimum expected."""
         for filename in ["schedule.html", "classes.html"]:
             schedule_file = raw_html_dir / filename
@@ -196,12 +192,15 @@ class TestFullDataPipeline:
                     try:
                         if parser_name == "assignments":
                             from src.scraper.parsers import parse_assignments
+
                             results[parser_name] = parse_assignments(fixture.read_text())
                         elif parser_name == "attendance":
                             from src.scraper.parsers import parse_attendance
+
                             results[parser_name] = parse_attendance(fixture.read_text())
                         elif parser_name == "schedule":
                             from src.scraper.parsers import parse_schedule
+
                             results[parser_name] = parse_schedule(fixture.read_text())
                         break
                     except ImportError:
@@ -218,9 +217,7 @@ class TestFullDataPipeline:
             if data:
                 print(f"{parser_name}: {len(data) if isinstance(data, list) else 'dict'}")
 
-    def test_data_can_be_stored_in_database(
-        self, raw_html_dir: Path, temp_db: Path
-    ):
+    def test_data_can_be_stored_in_database(self, raw_html_dir: Path, temp_db: Path):
         """Parsed data can be stored in database."""
         try:
             from src.database.repository import PowerSchoolRepository

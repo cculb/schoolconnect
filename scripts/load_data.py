@@ -48,7 +48,9 @@ def load_scraped_data():
 
     # Get current student
     current_student = data.get("current_student", {})
-    current_student_name = current_student.get("name", list(student_ids.keys())[0] if student_ids else "Unknown")
+    current_student_name = current_student.get(
+        "name", list(student_ids.keys())[0] if student_ids else "Unknown"
+    )
     current_student_id = student_ids.get(current_student_name, 1)
     print(f"\nCurrent student: {current_student_name} (DB ID: {current_student_id})")
 
@@ -96,8 +98,12 @@ def load_scraped_data():
                     student_id=current_student_id,
                     term=term.upper(),
                     letter_grade=grade,
-                    absences=int(course.get("absences", 0)) if str(course.get("absences", "")).isdigit() else 0,
-                    tardies=int(course.get("tardies", 0)) if str(course.get("tardies", "")).isdigit() else 0,
+                    absences=int(course.get("absences", 0))
+                    if str(course.get("absences", "")).isdigit()
+                    else 0,
+                    tardies=int(course.get("tardies", 0))
+                    if str(course.get("tardies", "")).isdigit()
+                    else 0,
                 )
                 print(f"    Grade {term.upper()}: {grade}")
 
@@ -107,7 +113,11 @@ def load_scraped_data():
     missing_count = 0
     for assignment in assignments:
         # Skip empty/invalid assignments
-        name = assignment.get("assignment_name") or assignment.get("assignment") or assignment.get("name")
+        name = (
+            assignment.get("assignment_name")
+            or assignment.get("assignment")
+            or assignment.get("name")
+        )
         if not name or len(name) < 2:
             continue
 
@@ -132,7 +142,9 @@ def load_scraped_data():
             category=assignment.get("category"),
             due_date=due_date,
             score=assignment.get("score"),
-            percent=float(assignment.get("percent", 0)) if assignment.get("percent", "").replace(".", "").isdigit() else None,
+            percent=float(assignment.get("percent", 0))
+            if assignment.get("percent", "").replace(".", "").isdigit()
+            else None,
             letter_grade=assignment.get("letter_grade"),
             status=status,
             codes=assignment.get("codes"),
@@ -173,7 +185,8 @@ def load_scraped_data():
         # Estimate based on typical school year
         # Assuming roughly 80 school days so far
         estimated_days = 80
-        estimated_rate = ((estimated_days - (total_absences / len(data.get("courses", [1])))) / estimated_days) * 100
+        num_courses = max(len(data.get("courses", [])), 1)
+        estimated_rate = ((estimated_days - (total_absences / num_courses)) / estimated_days) * 100
         repo.add_attendance_summary(
             student_id=current_student_id,
             attendance_rate=round(estimated_rate, 1),
@@ -190,6 +203,7 @@ def load_scraped_data():
 
     # First, try to extract emails from the HTML file if they're not in the JSON
     from bs4 import BeautifulSoup
+
     teacher_emails = {}
     home_html = Path(__file__).parent.parent / "raw_html" / "home.html"
     if home_html.exists():

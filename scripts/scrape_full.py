@@ -419,7 +419,7 @@ def scrape_schedule(page: Page) -> list:
 
 def run_full_scrape(headless: bool = False, student_name: str | None = None):
     """Run full scraping operation.
-    
+
     Args:
         headless: Run browser in headless mode (no visible window)
         student_name: Optional student name to filter scraping to (not yet implemented)
@@ -458,7 +458,7 @@ def run_full_scrape(headless: bool = False, student_name: str | None = None):
                 if student_name.lower() in student.get("name", "").lower():
                     matching_student = student
                     break
-            
+
             if matching_student:
                 print(f"Switching to student: {matching_student['name']}")
                 switch_student(page, matching_student["id"])

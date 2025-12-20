@@ -130,9 +130,8 @@ class TestQueryPerformance:
 
         for i in range(8):
             cursor.execute(
-                "INSERT INTO courses (course_id, course_name, grade_percent) "
-                "VALUES (?, ?, ?)",
-                (f"c{i}", f"Course {i}", 85.0 + i)
+                "INSERT INTO courses (course_id, course_name, grade_percent) VALUES (?, ?, ?)",
+                (f"c{i}", f"Course {i}", 85.0 + i),
             )
         conn.commit()
         conn.close()
@@ -248,12 +247,14 @@ class TestMCPToolIntegration:
         # Populate with known data
         repo = PowerSchoolRepository(temp_db)
 
-        repo.save_assignment({
-            "assignment_id": "test1",
-            "course_id": "c1",
-            "assignment_name": "Unique Test Assignment",
-            "status": "Missing",
-        })
+        repo.save_assignment(
+            {
+                "assignment_id": "test1",
+                "course_id": "c1",
+                "assignment_name": "Unique Test Assignment",
+                "status": "Missing",
+            }
+        )
 
         # Query through repository
         missing = repo.get_missing_assignments()
@@ -277,12 +278,14 @@ class TestMCPToolIntegration:
             try:
                 repo = PowerSchoolRepository(temp_db)
                 for i in range(10):
-                    repo.save_assignment({
-                        "assignment_id": f"w{threading.current_thread().name}_{i}",
-                        "course_id": "c1",
-                        "assignment_name": f"Assignment {i}",
-                        "status": "Graded",
-                    })
+                    repo.save_assignment(
+                        {
+                            "assignment_id": f"w{threading.current_thread().name}_{i}",
+                            "course_id": "c1",
+                            "assignment_name": f"Assignment {i}",
+                            "status": "Graded",
+                        }
+                    )
                     time.sleep(0.01)
             except Exception as e:
                 errors.append(str(e))

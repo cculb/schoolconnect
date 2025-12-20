@@ -18,9 +18,7 @@ class TestMCPToolGetMissingAssignments:
     """Tests for get_missing_assignments MCP tool."""
 
     @pytest.mark.asyncio
-    async def test_returns_missing_assignments(
-        self, test_db_path: Path, ground_truth: dict
-    ):
+    async def test_returns_missing_assignments(self, test_db_path: Path, ground_truth: dict):
         """Tool returns correct missing assignments from database."""
         if not test_db_path.exists():
             pytest.skip("Database not populated - run scraper first")
@@ -41,9 +39,7 @@ class TestMCPToolGetMissingAssignments:
             assert "course_name" in item or "course" in item, "Should have course info"
 
     @pytest.mark.asyncio
-    async def test_includes_known_missing_assignment(
-        self, test_db_path: Path, ground_truth: dict
-    ):
+    async def test_includes_known_missing_assignment(self, test_db_path: Path, ground_truth: dict):
         """Tool includes specific known missing assignments."""
         if not test_db_path.exists():
             pytest.skip("Database not populated - run scraper first")
@@ -59,15 +55,12 @@ class TestMCPToolGetMissingAssignments:
 
         # Check for at least one known missing assignment
         known_missing = ["atomic structure", "edpuzzle"]
-        found_any = any(
-            any(known in name for name in assignment_names) for known in known_missing
-        )
+        found_any = any(any(known in name for name in assignment_names) for known in known_missing)
 
         # This may fail if data has changed, so just warn
         if not found_any:
             print(
-                f"Warning: None of the known missing assignments found. "
-                f"Found: {assignment_names}"
+                f"Warning: None of the known missing assignments found. Found: {assignment_names}"
             )
 
 
@@ -75,9 +68,7 @@ class TestMCPToolGetAttendanceSummary:
     """Tests for get_attendance_summary MCP tool."""
 
     @pytest.mark.asyncio
-    async def test_returns_attendance_data(
-        self, test_db_path: Path, ground_truth: dict
-    ):
+    async def test_returns_attendance_data(self, test_db_path: Path, ground_truth: dict):
         """Tool returns correct attendance summary."""
         if not test_db_path.exists():
             pytest.skip("Database not populated - run scraper first")
@@ -103,9 +94,7 @@ class TestMCPToolGetAttendanceSummary:
         )
 
     @pytest.mark.asyncio
-    async def test_includes_absence_data(
-        self, test_db_path: Path, ground_truth: dict
-    ):
+    async def test_includes_absence_data(self, test_db_path: Path, ground_truth: dict):
         """Tool includes days absent information."""
         if not test_db_path.exists():
             pytest.skip("Database not populated - run scraper first")
@@ -196,14 +185,10 @@ class TestMCPToolGetActionItems:
         # Check structure
         for item in result:
             assert "type" in item or "priority" in item, "Should have type or priority"
-            assert "description" in item or "message" in item, (
-                "Should have description"
-            )
+            assert "description" in item or "message" in item, "Should have description"
 
     @pytest.mark.asyncio
-    async def test_includes_missing_assignment_action(
-        self, test_db_path: Path, ground_truth: dict
-    ):
+    async def test_includes_missing_assignment_action(self, test_db_path: Path, ground_truth: dict):
         """Action items include missing assignment reminders."""
         if not test_db_path.exists():
             pytest.skip("Database not populated - run scraper first")
@@ -245,9 +230,7 @@ class TestDatabaseIntegrity:
         conn = sqlite3.connect(test_db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cursor.fetchall()}
         conn.close()
 

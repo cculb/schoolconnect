@@ -26,17 +26,14 @@ class TestMissingAssignmentAlerts:
         conn = sqlite3.connect(test_db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT COUNT(*) FROM assignments WHERE status = 'Missing'"
-        )
+        cursor.execute("SELECT COUNT(*) FROM assignments WHERE status = 'Missing'")
         missing_count = cursor.fetchone()[0]
         conn.close()
 
         # Should detect at least the known missing assignments
         expected_min = len(ground_truth["missing_assignments"])
         assert missing_count >= expected_min, (
-            f"Should detect at least {expected_min} missing assignments, "
-            f"found {missing_count}"
+            f"Should detect at least {expected_min} missing assignments, found {missing_count}"
         )
 
     def test_alert_includes_due_date(self, test_db_path: Path):
@@ -48,8 +45,7 @@ class TestMissingAssignmentAlerts:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT assignment_name, due_date FROM assignments "
-            "WHERE status = 'Missing' LIMIT 5"
+            "SELECT assignment_name, due_date FROM assignments WHERE status = 'Missing' LIMIT 5"
         )
         missing = cursor.fetchall()
         conn.close()
@@ -117,10 +113,7 @@ class TestAttendanceAlerts:
         conn = sqlite3.connect(test_db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT attendance_rate FROM attendance_summary "
-            "WHERE term = 'YTD' LIMIT 1"
-        )
+        cursor.execute("SELECT attendance_rate FROM attendance_summary WHERE term = 'YTD' LIMIT 1")
         row = cursor.fetchone()
         conn.close()
 
@@ -135,9 +128,7 @@ class TestAttendanceAlerts:
         else:
             print(f"Attendance rate {rate}% is above threshold {threshold}%")
 
-    def test_calculates_absences_needed_for_threshold(
-        self, test_db_path: Path, ground_truth: dict
-    ):
+    def test_calculates_absences_needed_for_threshold(self, test_db_path: Path, ground_truth: dict):
         """Calculate how many more absences until hitting critical threshold."""
         if not test_db_path.exists():
             pytest.skip("Database not populated")
@@ -146,8 +137,7 @@ class TestAttendanceAlerts:
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT days_present, days_absent FROM attendance_summary "
-            "WHERE term = 'YTD' LIMIT 1"
+            "SELECT days_present, days_absent FROM attendance_summary WHERE term = 'YTD' LIMIT 1"
         )
         row = cursor.fetchone()
         conn.close()
@@ -220,9 +210,7 @@ class TestGradeAlerts:
             conn.close()
             pytest.skip("grade_percent column not in courses table")
 
-        cursor.execute(
-            "SELECT COUNT(*) FROM courses WHERE grade_percent IS NOT NULL"
-        )
+        cursor.execute("SELECT COUNT(*) FROM courses WHERE grade_percent IS NOT NULL")
         courses_with_grades = cursor.fetchone()[0]
         conn.close()
 
@@ -250,16 +238,16 @@ class TestAlertPrioritization:
         cursor = conn.cursor()
 
         # Check for missing assignments
-        cursor.execute(
-            "SELECT COUNT(*) FROM assignments WHERE status = 'Missing'"
-        )
+        cursor.execute("SELECT COUNT(*) FROM assignments WHERE status = 'Missing'")
         missing_count = cursor.fetchone()[0]
         if missing_count > 0:
-            alerts.append({
-                "type": "missing_assignments",
-                "priority": "high" if missing_count > 3 else "medium",
-                "count": missing_count,
-            })
+            alerts.append(
+                {
+                    "type": "missing_assignments",
+                    "priority": "high" if missing_count > 3 else "medium",
+                    "count": missing_count,
+                }
+            )
 
         # Check attendance
         try:
@@ -268,26 +256,28 @@ class TestAlertPrioritization:
             )
             row = cursor.fetchone()
             if row and row[0] < 90:
-                alerts.append({
-                    "type": "low_attendance",
-                    "priority": "high" if row[0] < 85 else "medium",
-                    "rate": row[0],
-                })
+                alerts.append(
+                    {
+                        "type": "low_attendance",
+                        "priority": "high" if row[0] < 85 else "medium",
+                        "rate": row[0],
+                    }
+                )
         except sqlite3.OperationalError:
             pass  # Table may not exist
 
         # Check low grades (only if column exists)
         if self._has_grade_column(cursor):
-            cursor.execute(
-                "SELECT COUNT(*) FROM courses WHERE grade_percent < 70"
-            )
+            cursor.execute("SELECT COUNT(*) FROM courses WHERE grade_percent < 70")
             low_grade_count = cursor.fetchone()[0]
             if low_grade_count > 0:
-                alerts.append({
-                    "type": "low_grades",
-                    "priority": "high",
-                    "count": low_grade_count,
-                })
+                alerts.append(
+                    {
+                        "type": "low_grades",
+                        "priority": "high",
+                        "count": low_grade_count,
+                    }
+                )
 
         conn.close()
 

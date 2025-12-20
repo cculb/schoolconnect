@@ -20,9 +20,7 @@ class TestDatabaseSchema:
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cursor.fetchall()}
         conn.close()
 
@@ -104,8 +102,7 @@ class TestRepositorySave:
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT assignment_name, status FROM assignments WHERE assignment_id = ?",
-            ("a1",)
+            "SELECT assignment_name, status FROM assignments WHERE assignment_id = ?", ("a1",)
         )
         row = cursor.fetchone()
         conn.close()
@@ -136,8 +133,7 @@ class TestRepositorySave:
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT attendance_rate FROM attendance_summary WHERE student_id = ?",
-            ("12345",)
+            "SELECT attendance_rate FROM attendance_summary WHERE student_id = ?", ("12345",)
         )
         row = cursor.fetchone()
         conn.close()
@@ -162,12 +158,12 @@ class TestRepositoryQuery:
         cursor.execute(
             "INSERT INTO assignments (assignment_id, course_id, assignment_name, status) "
             "VALUES (?, ?, ?, ?)",
-            ("a1", "c1", "Missing Test", "Missing")
+            ("a1", "c1", "Missing Test", "Missing"),
         )
         cursor.execute(
             "INSERT INTO assignments (assignment_id, course_id, assignment_name, status) "
             "VALUES (?, ?, ?, ?)",
-            ("a2", "c1", "Graded Test", "Graded")
+            ("a2", "c1", "Graded Test", "Graded"),
         )
         conn.commit()
         conn.close()
@@ -192,7 +188,7 @@ class TestRepositoryQuery:
             "INSERT INTO attendance_summary "
             "(student_id, term, days_present, days_absent, attendance_rate) "
             "VALUES (?, ?, ?, ?, ?)",
-            ("12345", "YTD", 70, 9, 88.6)
+            ("12345", "YTD", 70, 9, 88.6),
         )
         conn.commit()
         conn.close()
@@ -214,14 +210,12 @@ class TestRepositoryQuery:
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO courses (course_id, course_name, teacher_name) "
-            "VALUES (?, ?, ?)",
-            ("c1", "Math 6", "Smith, John")
+            "INSERT INTO courses (course_id, course_name, teacher_name) VALUES (?, ?, ?)",
+            ("c1", "Math 6", "Smith, John"),
         )
         cursor.execute(
-            "INSERT INTO courses (course_id, course_name, teacher_name) "
-            "VALUES (?, ?, ?)",
-            ("c2", "English 6", "Jones, Mary")
+            "INSERT INTO courses (course_id, course_name, teacher_name) VALUES (?, ?, ?)",
+            ("c2", "English 6", "Jones, Mary"),
         )
         conn.commit()
         conn.close()

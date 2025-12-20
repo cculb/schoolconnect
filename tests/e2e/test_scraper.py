@@ -141,7 +141,9 @@ class TestAttendanceScraping:
             attendance = await scraper.scrape_attendance_dashboard()
 
             assert isinstance(attendance, dict), "Should return a dictionary"
-            assert "rate" in attendance or "attendance_rate" in attendance, "Should include attendance rate"
+            assert "rate" in attendance or "attendance_rate" in attendance, (
+                "Should include attendance rate"
+            )
 
     @pytest.mark.asyncio
     async def test_attendance_rate_in_expected_range(
@@ -195,9 +197,9 @@ class TestScheduleScraping:
             courses = await scraper.scrape_schedule()
 
             assert isinstance(courses, list), "Should return a list"
-            assert (
-                len(courses) >= ground_truth["expected_courses_min"]
-            ), f"Expected at least {ground_truth['expected_courses_min']} courses"
+            assert len(courses) >= ground_truth["expected_courses_min"], (
+                f"Expected at least {ground_truth['expected_courses_min']} courses"
+            )
 
             # Check required fields
             for course in courses:
@@ -247,8 +249,8 @@ class TestFullScrapeWorkflow:
 
             cursor.execute("SELECT COUNT(*) FROM courses")
             course_count = cursor.fetchone()[0]
-            assert (
-                course_count >= ground_truth["expected_courses_min"]
-            ), f"Should have at least {ground_truth['expected_courses_min']} courses"
+            assert course_count >= ground_truth["expected_courses_min"], (
+                f"Should have at least {ground_truth['expected_courses_min']} courses"
+            )
 
             conn.close()

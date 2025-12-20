@@ -1,0 +1,2 @@
+# GitLab CI YAML files use GitLab-specific syntax that standard YAML linters don't understand
+.gitlab-ci.yml

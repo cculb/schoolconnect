@@ -1,4 +1,17 @@
-"""Data access layer for PowerSchool Portal database."""
+"""Data access layer for PowerSchool Portal database.
+
+This module provides the Repository class which handles all database
+operations for the PowerSchool Portal application. It uses parameterized
+queries to prevent SQL injection and returns data as dictionaries.
+
+Example:
+    from src.database.repository import Repository
+
+    repo = Repository()
+    students = repo.get_students()
+    for student in students:
+        grades = repo.get_current_grades(student["id"])
+"""
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -7,38 +20,74 @@ from .connection import DB_PATH, get_db
 
 
 class Repository:
-    """Repository for database operations."""
+    """Repository pattern implementation for PowerSchool database operations.
+
+    Provides CRUD operations for students, courses, grades, assignments,
+    attendance, teachers, and communications. All methods return data
+    as dictionaries rather than ORM objects.
+
+    Attributes:
+        db_path: Path to the SQLite database file.
+
+    Example:
+        repo = Repository()
+        student = repo.get_student_by_name("John")
+        if student:
+            missing = repo.get_missing_assignments(student["id"])
+    """
 
     def __init__(self, db_path: Optional[Path] = None):
+        """Initialize repository with optional custom database path.
+
+        Args:
+            db_path: Path to SQLite database. Uses default if not provided.
+        """
         self.db_path = db_path or DB_PATH
 
     # ==================== STUDENTS ====================
 
     def get_students(self) -> List[Dict]:
-        """Get all students."""
+        """Get all students ordered by first name.
+
+        Returns:
+            List of student dictionaries with keys: id, powerschool_id,
+            first_name, last_name, grade_level, school_name, updated_at.
+        """
         with get_db(self.db_path) as conn:
-            cursor = conn.execute(
-                "SELECT * FROM students ORDER BY first_name"
-            )
+            cursor = conn.execute("SELECT * FROM students ORDER BY first_name")
             return [dict(row) for row in cursor.fetchall()]
 
     def get_student_by_name(self, name: str) -> Optional[Dict]:
-        """Get student by name (first name match)."""
+        """Find a student by partial name match.
+
+        Searches both first name and full name (first + last).
+
+        Args:
+            name: Partial or full name to search for.
+
+        Returns:
+            Student dictionary if found, None otherwise.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT * FROM students WHERE first_name LIKE ? OR "
                 "(first_name || ' ' || last_name) LIKE ?",
-                (f"%{name}%", f"%{name}%")
+                (f"%{name}%", f"%{name}%"),
             )
             row = cursor.fetchone()
             return dict(row) if row else None
 
     def get_student_by_id(self, student_id: int) -> Optional[Dict]:
-        """Get student by database ID."""
+        """Get a student by their database ID.
+
+        Args:
+            student_id: The database primary key ID.
+
+        Returns:
+            Student dictionary if found, None otherwise.
+        """
         with get_db(self.db_path) as conn:
-            cursor = conn.execute(
-                "SELECT * FROM students WHERE id = ?", (student_id,)
-            )
+            cursor = conn.execute("SELECT * FROM students WHERE id = ?", (student_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -50,7 +99,21 @@ class Repository:
         grade_level: Optional[str] = None,
         school_name: Optional[str] = None,
     ) -> int:
-        """Insert or update a student. Returns student ID."""
+        """Insert or update a student record.
+
+        Uses UPSERT (INSERT ... ON CONFLICT) to create new students or
+        update existing ones based on powerschool_id.
+
+        Args:
+            powerschool_id: Unique PowerSchool identifier.
+            first_name: Student's first name.
+            last_name: Student's last name (optional).
+            grade_level: Grade level string, e.g., "9" or "12".
+            school_name: Name of the school.
+
+        Returns:
+            The database ID of the inserted or updated student.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
                 """
@@ -64,18 +127,26 @@ class Repository:
                     updated_at = CURRENT_TIMESTAMP
                 RETURNING id
                 """,
-                (powerschool_id, first_name, last_name, grade_level, school_name)
+                (powerschool_id, first_name, last_name, grade_level, school_name),
             )
             return cursor.fetchone()["id"]
 
     # ==================== COURSES ====================
 
     def get_courses(self, student_id: int) -> List[Dict]:
-        """Get all courses for a student."""
+        """Get all courses for a student, ordered by course name.
+
+        Args:
+            student_id: The student's database ID.
+
+        Returns:
+            List of course dictionaries with keys: id, student_id,
+            course_name, expression, room, teacher_name, teacher_email,
+            course_section, term, powerschool_frn, updated_at.
+        """
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT * FROM courses WHERE student_id = ? ORDER BY course_name",
-                (student_id,)
+                "SELECT * FROM courses WHERE student_id = ? ORDER BY course_name", (student_id,)
             )
             return [dict(row) for row in cursor.fetchall()]
 
@@ -107,8 +178,17 @@ class Repository:
                     updated_at = CURRENT_TIMESTAMP
                 RETURNING id
                 """,
-                (student_id, course_name, expression, room, teacher_name,
-                 teacher_email, course_section, term, powerschool_frn)
+                (
+                    student_id,
+                    course_name,
+                    expression,
+                    room,
+                    teacher_name,
+                    teacher_email,
+                    course_section,
+                    term,
+                    powerschool_frn,
+                ),
             )
             return cursor.fetchone()["id"]
 
@@ -134,8 +214,7 @@ class Repository:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
-                (course_id, student_id, term, letter_grade, percent,
-                 gpa_points, absences, tardies)
+                (course_id, student_id, term, letter_grade, percent, gpa_points, absences, tardies),
             )
             return cursor.fetchone()["id"]
 
@@ -143,8 +222,7 @@ class Repository:
         """Get current grades for a student (from view)."""
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT * FROM v_current_grades WHERE student_id = ?",
-                (student_id,)
+                "SELECT * FROM v_current_grades WHERE student_id = ?", (student_id,)
             )
             return [dict(row) for row in cursor.fetchall()]
 
@@ -152,8 +230,7 @@ class Repository:
         """Get grade trends for a student (from view)."""
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT * FROM v_grade_trends WHERE student_id = ?",
-                (student_id,)
+                "SELECT * FROM v_grade_trends WHERE student_id = ?", (student_id,)
             )
             return [dict(row) for row in cursor.fetchall()]
 
@@ -186,9 +263,22 @@ class Repository:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
-                (student_id, course_id, course_name, teacher_name, assignment_name,
-                 category, due_date, score, max_score, percent, letter_grade,
-                 status, codes, term)
+                (
+                    student_id,
+                    course_id,
+                    course_name,
+                    teacher_name,
+                    assignment_name,
+                    category,
+                    due_date,
+                    score,
+                    max_score,
+                    percent,
+                    letter_grade,
+                    status,
+                    codes,
+                    term,
+                ),
             )
             return cursor.fetchone()["id"]
 
@@ -221,16 +311,13 @@ class Repository:
         with get_db(self.db_path) as conn:
             if student_id:
                 cursor = conn.execute(
-                    "SELECT * FROM v_missing_assignments WHERE student_id = ?",
-                    (student_id,)
+                    "SELECT * FROM v_missing_assignments WHERE student_id = ?", (student_id,)
                 )
             else:
                 cursor = conn.execute("SELECT * FROM v_missing_assignments")
             return [dict(row) for row in cursor.fetchall()]
 
-    def get_upcoming_assignments(
-        self, student_id: int, days: int = 14
-    ) -> List[Dict]:
+    def get_upcoming_assignments(self, student_id: int, days: int = 14) -> List[Dict]:
         """Get upcoming assignments."""
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
@@ -242,17 +329,14 @@ class Repository:
                   AND status != 'Collected'
                 ORDER BY due_date ASC
                 """,
-                (student_id, days)
+                (student_id, days),
             )
             return [dict(row) for row in cursor.fetchall()]
 
     def clear_assignments(self, student_id: int):
         """Clear all assignments for a student (before re-sync)."""
         with get_db(self.db_path) as conn:
-            conn.execute(
-                "DELETE FROM assignments WHERE student_id = ?",
-                (student_id,)
-            )
+            conn.execute("DELETE FROM assignments WHERE student_id = ?", (student_id,))
 
     # ==================== ATTENDANCE ====================
 
@@ -278,8 +362,17 @@ class Repository:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
-                (student_id, term, attendance_rate, days_present, days_absent,
-                 days_excused, days_unexcused, tardies, total_days)
+                (
+                    student_id,
+                    term,
+                    attendance_rate,
+                    days_present,
+                    days_absent,
+                    days_excused,
+                    days_unexcused,
+                    tardies,
+                    total_days,
+                ),
             )
             return cursor.fetchone()["id"]
 
@@ -293,7 +386,7 @@ class Repository:
                 ORDER BY recorded_at DESC
                 LIMIT 1
                 """,
-                (student_id,)
+                (student_id,),
             )
             row = cursor.fetchone()
             return dict(row) if row else None
@@ -315,7 +408,7 @@ class Repository:
                 VALUES (?, CURRENT_TIMESTAMP, 'running')
                 RETURNING id
                 """,
-                (student_id,)
+                (student_id,),
             )
             return cursor.fetchone()["id"]
 
@@ -337,7 +430,7 @@ class Repository:
                     error_message = ?
                 WHERE id = ?
                 """,
-                (status, assignments_found, error_message, scrape_id)
+                (status, assignments_found, error_message, scrape_id),
             )
 
     # ==================== SUMMARIES ====================
@@ -346,8 +439,7 @@ class Repository:
         """Get student summary (from view)."""
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT * FROM v_student_summary WHERE student_id = ?",
-                (student_id,)
+                "SELECT * FROM v_student_summary WHERE student_id = ?", (student_id,)
             )
             row = cursor.fetchone()
             return dict(row) if row else None
@@ -357,8 +449,7 @@ class Repository:
         with get_db(self.db_path) as conn:
             if student_id:
                 cursor = conn.execute(
-                    "SELECT * FROM v_action_items WHERE student_id = ?",
-                    (student_id,)
+                    "SELECT * FROM v_action_items WHERE student_id = ?", (student_id,)
                 )
             else:
                 cursor = conn.execute("SELECT * FROM v_action_items")
@@ -368,8 +459,7 @@ class Repository:
         """Get assignment completion rates (from view)."""
         with get_db(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT * FROM v_assignment_completion_rate WHERE student_id = ?",
-                (student_id,)
+                "SELECT * FROM v_assignment_completion_rate WHERE student_id = ?", (student_id,)
             )
             return [dict(row) for row in cursor.fetchall()]
 
@@ -378,28 +468,20 @@ class Repository:
     def get_teachers(self) -> List[Dict]:
         """Get all teachers."""
         with get_db(self.db_path) as conn:
-            cursor = conn.execute(
-                "SELECT * FROM teachers ORDER BY name"
-            )
+            cursor = conn.execute("SELECT * FROM teachers ORDER BY name")
             return [dict(row) for row in cursor.fetchall()]
 
     def get_teacher_by_name(self, name: str) -> Optional[Dict]:
         """Get teacher by name (partial match)."""
         with get_db(self.db_path) as conn:
-            cursor = conn.execute(
-                "SELECT * FROM teachers WHERE name LIKE ?",
-                (f"%{name}%",)
-            )
+            cursor = conn.execute("SELECT * FROM teachers WHERE name LIKE ?", (f"%{name}%",))
             row = cursor.fetchone()
             return dict(row) if row else None
 
     def get_teacher_by_email(self, email: str) -> Optional[Dict]:
         """Get teacher by email."""
         with get_db(self.db_path) as conn:
-            cursor = conn.execute(
-                "SELECT * FROM teachers WHERE email = ?",
-                (email,)
-            )
+            cursor = conn.execute("SELECT * FROM teachers WHERE email = ?", (email,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -415,13 +497,9 @@ class Repository:
         with get_db(self.db_path) as conn:
             # Try to find by email first, then by name
             if email:
-                cursor = conn.execute(
-                    "SELECT id FROM teachers WHERE email = ?", (email,)
-                )
+                cursor = conn.execute("SELECT id FROM teachers WHERE email = ?", (email,))
             else:
-                cursor = conn.execute(
-                    "SELECT id FROM teachers WHERE name = ?", (name,)
-                )
+                cursor = conn.execute("SELECT id FROM teachers WHERE name = ?", (name,))
             existing = cursor.fetchone()
 
             if existing:
@@ -436,7 +514,7 @@ class Repository:
                         updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                     """,
-                    (name, email, department, room, courses_taught, existing["id"])
+                    (name, email, department, room, courses_taught, existing["id"]),
                 )
                 return existing["id"]
             else:
@@ -446,7 +524,7 @@ class Repository:
                     VALUES (?, ?, ?, ?, ?)
                     RETURNING id
                     """,
-                    (name, email, department, room, courses_taught)
+                    (name, email, department, room, courses_taught),
                 )
                 return cursor.fetchone()["id"]
 
@@ -455,7 +533,7 @@ class Repository:
         with get_db(self.db_path) as conn:
             conn.execute(
                 "UPDATE teachers SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (notes, teacher_id)
+                (notes, teacher_id),
             )
 
     def get_teacher_for_course(self, course_name: str) -> Optional[Dict]:
@@ -468,7 +546,7 @@ class Repository:
                 WHERE c.course_name LIKE ?
                 LIMIT 1
                 """,
-                (f"%{course_name}%",)
+                (f"%{course_name}%",),
             )
             row = cursor.fetchone()
             return dict(row) if row else None
@@ -493,7 +571,7 @@ class Repository:
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
-                (teacher_id, student_id, type, subject, body, context, status)
+                (teacher_id, student_id, type, subject, body, context, status),
             )
             return cursor.fetchone()["id"]
 
@@ -540,7 +618,7 @@ class Repository:
                 LEFT JOIN teachers t ON c.teacher_id = t.id
                 WHERE c.id = ?
                 """,
-                (communication_id,)
+                (communication_id,),
             )
             row = cursor.fetchone()
             return dict(row) if row else None
@@ -574,18 +652,14 @@ class Repository:
         params.append(communication_id)
 
         with get_db(self.db_path) as conn:
-            conn.execute(
-                f"UPDATE communications SET {', '.join(updates)} WHERE id = ?",
-                params
-            )
+            conn.execute(f"UPDATE communications SET {', '.join(updates)} WHERE id = ?", params)
 
     def mark_communication_sent(self, communication_id: int):
         """Mark a communication as sent and update teacher contact stats."""
         with get_db(self.db_path) as conn:
             # Get the teacher_id
             cursor = conn.execute(
-                "SELECT teacher_id FROM communications WHERE id = ?",
-                (communication_id,)
+                "SELECT teacher_id FROM communications WHERE id = ?", (communication_id,)
             )
             row = cursor.fetchone()
             if not row:
@@ -600,7 +674,7 @@ class Repository:
                 SET status = 'sent', sent_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """,
-                (communication_id,)
+                (communication_id,),
             )
 
             # Update teacher stats
@@ -613,16 +687,13 @@ class Repository:
                         updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                     """,
-                    (teacher_id,)
+                    (teacher_id,),
                 )
 
     def delete_communication(self, communication_id: int):
         """Delete a communication."""
         with get_db(self.db_path) as conn:
-            conn.execute(
-                "DELETE FROM communications WHERE id = ?",
-                (communication_id,)
-            )
+            conn.execute("DELETE FROM communications WHERE id = ?", (communication_id,))
 
     # ==================== COMMUNICATION TEMPLATES ====================
 
@@ -631,8 +702,7 @@ class Repository:
         with get_db(self.db_path) as conn:
             if type:
                 cursor = conn.execute(
-                    "SELECT * FROM communication_templates WHERE type = ?",
-                    (type,)
+                    "SELECT * FROM communication_templates WHERE type = ?", (type,)
                 )
             else:
                 cursor = conn.execute("SELECT * FROM communication_templates")
@@ -653,31 +723,33 @@ class Repository:
                 VALUES (?, ?, ?, ?)
                 RETURNING id
                 """,
-                (name, type, subject_template, body_template)
+                (name, type, subject_template, body_template),
             )
             return cursor.fetchone()["id"]
 
     # ==================== RAW QUERIES ====================
 
     # Allowed tables/views for custom queries (read-only access)
-    ALLOWED_QUERY_SOURCES = frozenset({
-        # Views (safe, read-only aggregations)
-        "v_missing_assignments",
-        "v_current_grades",
-        "v_grade_trends",
-        "v_attendance_alerts",
-        "v_upcoming_assignments",
-        "v_assignment_completion_rate",
-        "v_student_summary",
-        "v_action_items",
-        # Base tables (read-only)
-        "students",
-        "courses",
-        "grades",
-        "assignments",
-        "attendance_summary",
-        "scrape_history",
-    })
+    ALLOWED_QUERY_SOURCES = frozenset(
+        {
+            # Views (safe, read-only aggregations)
+            "v_missing_assignments",
+            "v_current_grades",
+            "v_grade_trends",
+            "v_attendance_alerts",
+            "v_upcoming_assignments",
+            "v_assignment_completion_rate",
+            "v_student_summary",
+            "v_action_items",
+            # Base tables (read-only)
+            "students",
+            "courses",
+            "grades",
+            "assignments",
+            "attendance_summary",
+            "scrape_history",
+        }
+    )
 
     def execute_query(self, sql: str) -> List[Dict]:
         """Execute a read-only SQL query against allowed tables/views only.

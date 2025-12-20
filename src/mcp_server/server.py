@@ -38,6 +38,7 @@ def get_repo() -> Repository:
 
 # ==================== TOOL DEFINITIONS ====================
 
+
 @app.list_tools()
 async def list_tools() -> list[Tool]:
     """List available tools."""
@@ -66,7 +67,6 @@ async def list_tools() -> list[Tool]:
                 "required": ["student_name"],
             },
         ),
-
         # Grade Tools
         Tool(
             name="get_current_grades",
@@ -100,7 +100,6 @@ async def list_tools() -> list[Tool]:
                 "required": ["student_name"],
             },
         ),
-
         # Assignment Tools
         Tool(
             name="get_missing_assignments",
@@ -149,7 +148,6 @@ async def list_tools() -> list[Tool]:
                 "required": ["student_name"],
             },
         ),
-
         # Attendance Tools
         Tool(
             name="get_attendance_summary",
@@ -174,7 +172,6 @@ async def list_tools() -> list[Tool]:
                 "required": [],
             },
         ),
-
         # Insight Tools
         Tool(
             name="get_action_items",
@@ -222,7 +219,6 @@ async def list_tools() -> list[Tool]:
                 "required": ["student_name", "course_name"],
             },
         ),
-
         # Teacher Tools
         Tool(
             name="list_teachers",
@@ -329,7 +325,6 @@ async def list_tools() -> list[Tool]:
                 "required": [],
             },
         ),
-
         # Utility Tools
         Tool(
             name="run_custom_query",
@@ -359,6 +354,7 @@ async def list_tools() -> list[Tool]:
 
 # ==================== TOOL HANDLERS ====================
 
+
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle tool calls."""
@@ -372,11 +368,15 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "get_current_grades":
             return await handle_current_grades(repo, arguments["student_name"])
         elif name == "get_grade_trends":
-            return await handle_grade_trends(repo, arguments["student_name"], arguments.get("course_name"))
+            return await handle_grade_trends(
+                repo, arguments["student_name"], arguments.get("course_name")
+            )
         elif name == "get_missing_assignments":
             return await handle_missing_assignments(repo, arguments.get("student_name", "all"))
         elif name == "get_upcoming_assignments":
-            return await handle_upcoming_assignments(repo, arguments["student_name"], arguments.get("days", 14))
+            return await handle_upcoming_assignments(
+                repo, arguments["student_name"], arguments.get("days", 14)
+            )
         elif name == "get_assignment_completion_rates":
             return await handle_completion_rates(repo, arguments["student_name"])
         elif name == "get_attendance_summary":
@@ -388,19 +388,31 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "generate_weekly_report":
             return await handle_weekly_report(repo, arguments["student_name"])
         elif name == "prepare_teacher_meeting":
-            return await handle_teacher_meeting(repo, arguments["student_name"], arguments["course_name"])
+            return await handle_teacher_meeting(
+                repo, arguments["student_name"], arguments["course_name"]
+            )
         elif name == "list_teachers":
             return await handle_list_teachers(repo)
         elif name == "get_teacher_profile":
             return await handle_teacher_profile(repo, arguments["teacher_name"])
         elif name == "draft_teacher_email":
-            return await handle_draft_email(repo, arguments["student_name"], arguments["teacher_name"],
-                                            arguments["topic"], arguments.get("custom_message"))
+            return await handle_draft_email(
+                repo,
+                arguments["student_name"],
+                arguments["teacher_name"],
+                arguments["topic"],
+                arguments.get("custom_message"),
+            )
         elif name == "get_communication_suggestions":
             return await handle_communication_suggestions(repo, arguments["student_name"])
         elif name == "save_communication_draft":
-            return await handle_save_draft(repo, arguments["teacher_name"], arguments["student_name"],
-                                          arguments["subject"], arguments["body"])
+            return await handle_save_draft(
+                repo,
+                arguments["teacher_name"],
+                arguments["student_name"],
+                arguments["subject"],
+                arguments["body"],
+            )
         elif name == "list_communication_drafts":
             return await handle_list_drafts(repo, arguments.get("status", "draft"))
         elif name == "run_custom_query":
@@ -415,6 +427,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 # ==================== HANDLER IMPLEMENTATIONS ====================
 
+
 async def handle_list_students(repo: Repository) -> list[TextContent]:
     """List all students."""
     students = repo.get_students()
@@ -424,8 +437,8 @@ async def handle_list_students(repo: Repository) -> list[TextContent]:
     result = "## Students\n\n"
     for s in students:
         name = f"{s['first_name']} {s.get('last_name', '')}".strip()
-        grade = s.get('grade_level', 'N/A')
-        school = s.get('school_name', 'N/A')
+        grade = s.get("grade_level", "N/A")
+        school = s.get("school_name", "N/A")
         result += f"- **{name}** - Grade: {grade}, School: {school}\n"
 
     return [TextContent(type="text", text=result)]
@@ -449,7 +462,7 @@ async def handle_student_summary(repo: Repository, student_name: str) -> list[Te
             result += f"## {summary['student_name']}\n\n"
             result += f"- **Courses**: {summary['course_count']}\n"
             result += f"- **Missing Assignments**: {summary['missing_assignments']}\n"
-            if summary.get('attendance_rate'):
+            if summary.get("attendance_rate"):
                 result += f"- **Attendance Rate**: {summary['attendance_rate']:.1f}%\n"
             result += "\n"
 
@@ -471,15 +484,19 @@ async def handle_current_grades(repo: Repository, student_name: str) -> list[Tex
     result += "|--------|-------|------|----------|\n"
 
     for g in grades:
-        grade = g.get('letter_grade', 'N/A')
-        if g.get('percent'):
+        grade = g.get("letter_grade", "N/A")
+        if g.get("percent"):
             grade = f"{grade} ({g['percent']:.0f}%)"
-        result += f"| {g['course_name']} | {grade} | {g['term']} | {g.get('teacher_name', 'N/A')} |\n"
+        result += (
+            f"| {g['course_name']} | {grade} | {g['term']} | {g.get('teacher_name', 'N/A')} |\n"
+        )
 
     return [TextContent(type="text", text=result)]
 
 
-async def handle_grade_trends(repo: Repository, student_name: str, course_name: Optional[str]) -> list[TextContent]:
+async def handle_grade_trends(
+    repo: Repository, student_name: str, course_name: Optional[str]
+) -> list[TextContent]:
     """Get grade trends."""
     student = repo.get_student_by_name(student_name)
     if not student:
@@ -487,7 +504,7 @@ async def handle_grade_trends(repo: Repository, student_name: str, course_name: 
 
     trends = repo.get_grade_trends(student["id"])
     if course_name:
-        trends = [t for t in trends if course_name.lower() in t['course_name'].lower()]
+        trends = [t for t in trends if course_name.lower() in t["course_name"].lower()]
 
     if not trends:
         return [TextContent(type="text", text="No grade trends found.")]
@@ -514,24 +531,30 @@ async def handle_missing_assignments(repo: Repository, student_name: str) -> lis
 
     missing = repo.get_missing_assignments(student_id)
     if not missing:
-        msg = "No missing assignments! 🎉" if student_name.lower() != "all" else "No missing assignments for any student!"
+        msg = (
+            "No missing assignments! 🎉"
+            if student_name.lower() != "all"
+            else "No missing assignments for any student!"
+        )
         return [TextContent(type="text", text=msg)]
 
     result = "## Missing Assignments\n\n"
     for m in missing:
-        days = m.get('days_overdue', 0)
+        days = m.get("days_overdue", 0)
         overdue = f" ({int(days)} days overdue)" if days and days > 0 else ""
         result += f"- **{m['assignment_name']}**{overdue}\n"
         result += f"  - Course: {m['course_name']}\n"
         result += f"  - Teacher: {m.get('teacher_name', 'N/A')}\n"
-        if m.get('due_date'):
+        if m.get("due_date"):
             result += f"  - Due: {m['due_date']}\n"
         result += "\n"
 
     return [TextContent(type="text", text=result)]
 
 
-async def handle_upcoming_assignments(repo: Repository, student_name: str, days: int) -> list[TextContent]:
+async def handle_upcoming_assignments(
+    repo: Repository, student_name: str, days: int
+) -> list[TextContent]:
     """Get upcoming assignments."""
     student = repo.get_student_by_name(student_name)
     if not student:
@@ -588,7 +611,7 @@ async def handle_attendance_summary(repo: Repository, student_name: str) -> list
     result += f"- **Tardies**: {attendance.get('tardies', 0)}\n"
     result += f"- **Total School Days**: {attendance.get('total_days', 'N/A')}\n"
 
-    rate = attendance.get('attendance_rate', 100)
+    rate = attendance.get("attendance_rate", 100)
     if rate < 80:
         result += "\n⚠️ **CRITICAL**: Attendance is below 80%. This may affect academic progress."
     elif rate < 90:
@@ -605,7 +628,7 @@ async def handle_attendance_alerts(repo: Repository) -> list[TextContent]:
 
     result = "## Attendance Alerts\n\n"
     for a in alerts:
-        level = a.get('alert_level', 'warning').upper()
+        level = a.get("alert_level", "warning").upper()
         emoji = "🔴" if level == "CRITICAL" else "🟡"
         result += f"{emoji} **{a['student_name']}**: {a['attendance_rate']:.1f}% ({level})\n"
         result += f"   - Absences: {a['days_absent']}, Tardies: {a['tardies']}\n\n"
@@ -629,10 +652,10 @@ async def handle_action_items(repo: Repository, student_name: str) -> list[TextC
 
     result = "## Action Items\n\n"
     for a in actions:
-        priority = a.get('priority', 'medium').upper()
+        priority = a.get("priority", "medium").upper()
         emoji = "🔴" if priority in ["HIGH", "CRITICAL"] else "🟡"
         result += f"{emoji} **[{priority}]** {a['message']}\n"
-        if a.get('suggested_action'):
+        if a.get("suggested_action"):
             result += f"   → {a['suggested_action']}\n"
         result += "\n"
 
@@ -660,7 +683,7 @@ async def handle_weekly_report(repo: Repository, student_name: str) -> list[Text
         result += f"- **Courses**: {summary['course_count']}\n"
         result += f"- **Missing Assignments**: {summary['missing_assignments']}\n"
     if attendance:
-        rate = attendance.get('attendance_rate', 0)
+        rate = attendance.get("attendance_rate", 0)
         status = "✅" if rate >= 95 else "⚠️" if rate >= 90 else "🔴"
         result += f"- **Attendance**: {rate:.1f}% {status}\n"
     result += "\n"
@@ -695,7 +718,9 @@ async def handle_weekly_report(repo: Repository, student_name: str) -> list[Text
     return [TextContent(type="text", text=result)]
 
 
-async def handle_teacher_meeting(repo: Repository, student_name: str, course_name: str) -> list[TextContent]:
+async def handle_teacher_meeting(
+    repo: Repository, student_name: str, course_name: str
+) -> list[TextContent]:
     """Prepare for teacher meeting."""
     student = repo.get_student_by_name(student_name)
     if not student:
@@ -705,18 +730,26 @@ async def handle_teacher_meeting(repo: Repository, student_name: str, course_nam
     courses = repo.get_courses(student["id"])
     course = None
     for c in courses:
-        if course_name.lower() in c['course_name'].lower():
+        if course_name.lower() in c["course_name"].lower():
             course = c
             break
 
     if not course:
-        available = ", ".join([c['course_name'] for c in courses])
-        return [TextContent(type="text", text=f"No course matching '{course_name}'. Available: {available}")]
+        available = ", ".join([c["course_name"] for c in courses])
+        return [
+            TextContent(
+                type="text", text=f"No course matching '{course_name}'. Available: {available}"
+            )
+        ]
 
     # Get course-specific data
-    grades = [g for g in repo.get_current_grades(student["id"]) if g['course_name'] == course['course_name']]
-    assignments = repo.get_assignments(student["id"], course_name=course['course_name'])
-    missing = [a for a in assignments if a['status'] == 'Missing']
+    grades = [
+        g
+        for g in repo.get_current_grades(student["id"])
+        if g["course_name"] == course["course_name"]
+    ]
+    assignments = repo.get_assignments(student["id"], course_name=course["course_name"])
+    missing = [a for a in assignments if a["status"] == "Missing"]
 
     result = f"# Teacher Meeting Prep: {course['course_name']}\n"
     result += f"*Student: {student['first_name']}*\n\n"
@@ -725,7 +758,7 @@ async def handle_teacher_meeting(repo: Repository, student_name: str, course_nam
     result += "## Teacher Information\n"
     result += f"- **Name**: {course.get('teacher_name', 'N/A')}\n"
     result += f"- **Room**: {course.get('room', 'N/A')}\n"
-    if course.get('teacher_email'):
+    if course.get("teacher_email"):
         result += f"- **Email**: {course['teacher_email']}\n"
     result += "\n"
 
@@ -789,14 +822,15 @@ async def handle_database_status(repo: Repository) -> list[TextContent]:
     result = "## Database Status\n\n"
     result += f"**Tables**: {', '.join(info.get('tables', []))}\n\n"
     result += "**Row Counts**:\n"
-    for table, count in info.get('row_counts', {}).items():
-        if not table.startswith('sqlite_'):
+    for table, count in info.get("row_counts", {}).items():
+        if not table.startswith("sqlite_"):
             result += f"- {table}: {count}\n"
 
     return [TextContent(type="text", text=result)]
 
 
 # ==================== TEACHER HANDLERS ====================
+
 
 async def handle_list_teachers(repo: Repository) -> list[TextContent]:
     """List all teachers."""
@@ -809,12 +843,12 @@ async def handle_list_teachers(repo: Repository) -> list[TextContent]:
     result += "|------|-------|----------|\n"
 
     for t in teachers:
-        courses = t.get('courses_taught', '[]')
+        courses = t.get("courses_taught", "[]")
         try:
             courses_list = json.loads(courses) if courses else []
             courses_str = ", ".join(courses_list[:3])
             if len(courses_list) > 3:
-                courses_str += f" (+{len(courses_list)-3} more)"
+                courses_str += f" (+{len(courses_list) - 3} more)"
         except (json.JSONDecodeError, TypeError, ValueError):
             courses_str = str(courses)[:30]
 
@@ -828,19 +862,23 @@ async def handle_teacher_profile(repo: Repository, teacher_name: str) -> list[Te
     teacher = repo.get_teacher_by_name(teacher_name)
     if not teacher:
         teachers = repo.get_teachers()
-        names = ", ".join([t['name'] for t in teachers])
-        return [TextContent(type="text", text=f"No teacher found matching '{teacher_name}'. Available: {names}")]
+        names = ", ".join([t["name"] for t in teachers])
+        return [
+            TextContent(
+                type="text", text=f"No teacher found matching '{teacher_name}'. Available: {names}"
+            )
+        ]
 
     result = f"## Teacher Profile: {teacher['name']}\n\n"
     result += f"- **Email**: {teacher.get('email', 'N/A')}\n"
     result += f"- **Room**: {teacher.get('room', 'N/A')}\n"
 
-    if teacher.get('last_contacted'):
+    if teacher.get("last_contacted"):
         result += f"- **Last Contacted**: {teacher['last_contacted']}\n"
     result += f"- **Communication Count**: {teacher.get('communication_count', 0)}\n"
 
     # Courses taught
-    courses = teacher.get('courses_taught', '[]')
+    courses = teacher.get("courses_taught", "[]")
     try:
         courses_list = json.loads(courses) if courses else []
         if courses_list:
@@ -851,14 +889,19 @@ async def handle_teacher_profile(repo: Repository, teacher_name: str) -> list[Te
         pass
 
     # Notes
-    if teacher.get('notes'):
+    if teacher.get("notes"):
         result += f"\n### Notes\n{teacher['notes']}\n"
 
     return [TextContent(type="text", text=result)]
 
 
-async def handle_draft_email(repo: Repository, student_name: str, teacher_name: str,
-                             topic: str, custom_message: Optional[str] = None) -> list[TextContent]:
+async def handle_draft_email(
+    repo: Repository,
+    student_name: str,
+    teacher_name: str,
+    topic: str,
+    custom_message: Optional[str] = None,
+) -> list[TextContent]:
     """Draft an email to a teacher."""
     student = repo.get_student_by_name(student_name)
     if not student:
@@ -869,19 +912,25 @@ async def handle_draft_email(repo: Repository, student_name: str, teacher_name: 
         return [TextContent(type="text", text=f"No teacher found matching '{teacher_name}'.")]
 
     # Get relevant data for the email
-    missing = [a for a in repo.get_missing_assignments(student["id"])
-               if teacher_name.lower() in (a.get('teacher_name', '') or '').lower()]
-    grades = [g for g in repo.get_current_grades(student["id"])
-              if teacher_name.lower() in (g.get('teacher_name', '') or '').lower()]
+    missing = [
+        a
+        for a in repo.get_missing_assignments(student["id"])
+        if teacher_name.lower() in (a.get("teacher_name", "") or "").lower()
+    ]
+    grades = [
+        g
+        for g in repo.get_current_grades(student["id"])
+        if teacher_name.lower() in (g.get("teacher_name", "") or "").lower()
+    ]
 
     # Generate email based on topic
-    student_first = student['first_name']
+    student_first = student["first_name"]
     # teacher_last available if needed for formal addressing
-    _ = teacher['name'].split(',')[0] if ',' in teacher['name'] else teacher['name'].split()[-1]
+    _ = teacher["name"].split(",")[0] if "," in teacher["name"] else teacher["name"].split()[-1]
 
     if topic == "missing_work":
         subject = f"Regarding {student_first}'s Missing Assignment(s)"
-        body = f"""Dear {teacher['name']},
+        body = f"""Dear {teacher["name"]},
 
 I hope this email finds you well. I am writing regarding my child {student_first}'s missing assignment(s) in your class.
 
@@ -903,8 +952,8 @@ Best regards,
 
     elif topic == "grade_concern":
         subject = f"Checking in on {student_first}'s Progress"
-        current_grade = grades[0].get('letter_grade', 'N/A') if grades else 'N/A'
-        body = f"""Dear {teacher['name']},
+        current_grade = grades[0].get("letter_grade", "N/A") if grades else "N/A"
+        body = f"""Dear {teacher["name"]},
 
 I hope this message finds you well. I wanted to reach out to discuss {student_first}'s current progress in your class.
 
@@ -922,7 +971,7 @@ Thank you,
 
     elif topic == "meeting_request":
         subject = f"Request for Parent-Teacher Conference - {student_first}"
-        body = f"""Dear {teacher['name']},
+        body = f"""Dear {teacher["name"]},
 
 I hope this email finds you well. I would like to request a parent-teacher conference to discuss {student_first}'s progress in your class.
 
@@ -940,7 +989,7 @@ Best regards,
 
     else:  # general
         subject = f"Checking in - {student_first} in Your Class"
-        body = f"""Dear {teacher['name']},
+        body = f"""Dear {teacher["name"]},
 
 I hope this message finds you well. I wanted to touch base regarding {student_first}'s experience in your class.
 
@@ -965,7 +1014,9 @@ Best regards,
     return [TextContent(type="text", text=result)]
 
 
-async def handle_communication_suggestions(repo: Repository, student_name: str) -> list[TextContent]:
+async def handle_communication_suggestions(
+    repo: Repository, student_name: str
+) -> list[TextContent]:
     """Get communication suggestions."""
     student = repo.get_student_by_name(student_name)
     if not student:
@@ -982,38 +1033,44 @@ async def handle_communication_suggestions(repo: Repository, student_name: str) 
     if missing:
         by_teacher = {}
         for m in missing:
-            teacher = m.get('teacher_name', 'Unknown')
+            teacher = m.get("teacher_name", "Unknown")
             if teacher not in by_teacher:
                 by_teacher[teacher] = []
             by_teacher[teacher].append(m)
 
         for teacher, items in by_teacher.items():
-            suggestions.append({
-                "priority": "HIGH",
-                "teacher": teacher,
-                "topic": "missing_work",
-                "reason": f"{len(items)} missing assignment(s)",
-                "items": [i['assignment_name'] for i in items]
-            })
+            suggestions.append(
+                {
+                    "priority": "HIGH",
+                    "teacher": teacher,
+                    "topic": "missing_work",
+                    "reason": f"{len(items)} missing assignment(s)",
+                    "items": [i["assignment_name"] for i in items],
+                }
+            )
 
     # Low grade suggestions
-    low_grades = [g for g in grades if g.get('letter_grade') in ['1', '2', 'D', 'F']]
+    low_grades = [g for g in grades if g.get("letter_grade") in ["1", "2", "D", "F"]]
     for g in low_grades:
-        suggestions.append({
-            "priority": "MEDIUM",
-            "teacher": g.get('teacher_name', 'Unknown'),
-            "topic": "grade_concern",
-            "reason": f"Grade of {g['letter_grade']} in {g['course_name']}",
-        })
+        suggestions.append(
+            {
+                "priority": "MEDIUM",
+                "teacher": g.get("teacher_name", "Unknown"),
+                "topic": "grade_concern",
+                "reason": f"Grade of {g['letter_grade']} in {g['course_name']}",
+            }
+        )
 
     # Attendance suggestions
-    if attendance and attendance.get('attendance_rate', 100) < 90:
-        suggestions.append({
-            "priority": "MEDIUM",
-            "teacher": "Counselor/Admin",
-            "topic": "general",
-            "reason": f"Attendance rate at {attendance['attendance_rate']:.1f}%",
-        })
+    if attendance and attendance.get("attendance_rate", 100) < 90:
+        suggestions.append(
+            {
+                "priority": "MEDIUM",
+                "teacher": "Counselor/Admin",
+                "topic": "general",
+                "reason": f"Attendance rate at {attendance['attendance_rate']:.1f}%",
+            }
+        )
 
     if not suggestions:
         result += "✅ **No urgent communications needed!**\n\n"
@@ -1023,20 +1080,21 @@ async def handle_communication_suggestions(repo: Repository, student_name: str) 
         result += "- Questions about upcoming projects or curriculum\n"
     else:
         result += "### Recommended Outreach\n\n"
-        for s in sorted(suggestions, key=lambda x: x['priority']):
-            emoji = "🔴" if s['priority'] == "HIGH" else "🟡"
+        for s in sorted(suggestions, key=lambda x: x["priority"]):
+            emoji = "🔴" if s["priority"] == "HIGH" else "🟡"
             result += f"{emoji} **{s['priority']}**: Contact **{s['teacher']}**\n"
             result += f"   - Topic: {s['topic'].replace('_', ' ').title()}\n"
             result += f"   - Reason: {s['reason']}\n"
-            if 'items' in s:
+            if "items" in s:
                 result += f"   - Details: {', '.join(s['items'][:3])}\n"
             result += "\n"
 
     return [TextContent(type="text", text=result)]
 
 
-async def handle_save_draft(repo: Repository, teacher_name: str, student_name: str,
-                           subject: str, body: str) -> list[TextContent]:
+async def handle_save_draft(
+    repo: Repository, teacher_name: str, student_name: str, subject: str, body: str
+) -> list[TextContent]:
     """Save a communication draft."""
     student = repo.get_student_by_name(student_name)
     if not student:
@@ -1055,7 +1113,7 @@ async def handle_save_draft(repo: Repository, teacher_name: str, student_name: s
         subject=subject,
         body=body,
         context=context,
-        status="draft"
+        status="draft",
     )
 
     result = f"✅ Draft saved (ID: {draft_id})\n\n"
@@ -1078,12 +1136,12 @@ async def handle_list_drafts(repo: Repository, status: str) -> list[TextContent]
 
     result = f"## Communications ({status})\n\n"
     for d in drafts:
-        status_emoji = "📝" if d['status'] == 'draft' else "✅" if d['status'] == 'sent' else "📁"
+        status_emoji = "📝" if d["status"] == "draft" else "✅" if d["status"] == "sent" else "📁"
         result += f"{status_emoji} **ID {d['id']}**: {d.get('subject', 'No subject')}\n"
         result += f"   - To: {d.get('teacher_name', 'Unknown')}\n"
         result += f"   - Student: {d.get('student_name', 'Unknown')}\n"
         result += f"   - Created: {d['created_at']}\n"
-        if d.get('sent_at'):
+        if d.get("sent_at"):
             result += f"   - Sent: {d['sent_at']}\n"
         result += "\n"
 
@@ -1091,6 +1149,7 @@ async def handle_list_drafts(repo: Repository, status: str) -> list[TextContent]
 
 
 # ==================== MAIN ====================
+
 
 async def main():
     """Run the MCP server."""
@@ -1100,4 +1159,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())
