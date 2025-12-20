@@ -659,15 +659,84 @@ class Repository:
 
     # ==================== RAW QUERIES ====================
 
+    # Allowed tables/views for custom queries (read-only access)
+    ALLOWED_QUERY_SOURCES = frozenset({
+        # Views (safe, read-only aggregations)
+        "v_missing_assignments",
+        "v_current_grades",
+        "v_grade_trends",
+        "v_attendance_alerts",
+        "v_upcoming_assignments",
+        "v_assignment_completion_rate",
+        "v_student_summary",
+        "v_action_items",
+        # Base tables (read-only)
+        "students",
+        "courses",
+        "grades",
+        "assignments",
+        "attendance_summary",
+        "scrape_history",
+    })
+
     def execute_query(self, sql: str) -> List[Dict]:
-        """Execute a read-only SQL query."""
-        # Basic safety check - only allow SELECT
-        sql_upper = sql.strip().upper()
+        """Execute a read-only SQL query against allowed tables/views only.
+
+        Args:
+            sql: SQL SELECT query (must only reference allowed tables/views)
+
+        Returns:
+            List of rows as dictionaries
+
+        Raises:
+            ValueError: If query is not SELECT or references disallowed tables
+
+        Security:
+            - Only SELECT queries are allowed
+            - Only predefined tables/views can be queried
+            - No subqueries, CTEs, or complex expressions that could bypass validation
+        """
+        import re
+
+        sql_clean = sql.strip()
+        sql_upper = sql_clean.upper()
+
+        # Only allow SELECT statements
         if not sql_upper.startswith("SELECT"):
             raise ValueError("Only SELECT queries are allowed")
 
+        # Block potentially dangerous patterns
+        dangerous_patterns = [
+            r"\bATTACH\b",
+            r"\bDETACH\b",
+            r"\bPRAGMA\b",
+            r"\bLOAD_EXTENSION\b",
+            r";\s*\w",  # Multiple statements
+            r"--",  # SQL comments (could hide malicious code)
+            r"/\*",  # Block comments
+        ]
+        for pattern in dangerous_patterns:
+            if re.search(pattern, sql_upper):
+                raise ValueError(f"Query contains disallowed pattern: {pattern}")
+
+        # Extract table/view references from FROM and JOIN clauses
+        # Match words after FROM or JOIN keywords
+        table_pattern = r"\b(?:FROM|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)"
+        referenced_tables = set(re.findall(table_pattern, sql_clean, re.IGNORECASE))
+
+        # Validate all referenced tables are in the allowed list
+        disallowed = referenced_tables - self.ALLOWED_QUERY_SOURCES
+        if disallowed:
+            raise ValueError(
+                f"Query references disallowed tables: {', '.join(sorted(disallowed))}. "
+                f"Allowed: {', '.join(sorted(self.ALLOWED_QUERY_SOURCES))}"
+            )
+
+        if not referenced_tables:
+            raise ValueError("Query must reference at least one table or view")
+
         with get_db(self.db_path) as conn:
-            cursor = conn.execute(sql)
+            cursor = conn.execute(sql_clean)
             return [dict(row) for row in cursor.fetchall()]
 
 

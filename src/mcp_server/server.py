@@ -847,7 +847,7 @@ async def handle_teacher_profile(repo: Repository, teacher_name: str) -> list[Te
             result += "\n### Courses Taught\n"
             for c in courses_list:
                 result += f"- {c}\n"
-    except:
+    except (json.JSONDecodeError, TypeError, ValueError):
         pass
 
     # Notes
@@ -876,7 +876,8 @@ async def handle_draft_email(repo: Repository, student_name: str, teacher_name: 
 
     # Generate email based on topic
     student_first = student['first_name']
-    teacher_last = teacher['name'].split(',')[0] if ',' in teacher['name'] else teacher['name'].split()[-1]
+    # teacher_last available if needed for formal addressing
+    _ = teacher['name'].split(',')[0] if ',' in teacher['name'] else teacher['name'].split()[-1]
 
     if topic == "missing_work":
         subject = f"Regarding {student_first}'s Missing Assignment(s)"

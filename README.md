@@ -1,93 +1,182 @@
-# schoolconnect
+# SchoolConnect
 
+A Python tool for parents to scrape, store, and analyze student academic data from PowerSchool Parent Portal. Includes CLI tools, a SQLite database, and an MCP (Model Context Protocol) server for AI agent integration.
 
+## Features
 
-## Getting started
+- **Data Scraping**: Automated extraction of grades, assignments, and attendance from PowerSchool
+- **Local Database**: SQLite storage with views for analysis (grades, missing work, trends)
+- **CLI Tools**: Command-line interface for querying and generating reports
+- **MCP Server**: AI agent integration via Model Context Protocol (works with Claude, etc.)
+- **Weekly Reports**: Automated summary reports for each student
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Requirements
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.spectrumflow.net/cculb/schoolconnect.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.spectrumflow.net/cculb/schoolconnect/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+- Python 3.12+
+- [uv](https://github.com/astral-sh/uv) package manager (recommended)
+- Playwright (for browser automation)
+- Valid PowerSchool Parent Portal credentials
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd schoolconnect
+
+# Install dependencies with uv
+uv sync
+
+# Install Playwright browsers
+uv run playwright install chromium
+```
+
+## Configuration
+
+Create a `.env` file in the project root with your PowerSchool credentials:
+
+```env
+POWERSCHOOL_URL=https://your-school.powerschool.com
+POWERSCHOOL_USERNAME=your-username
+POWERSCHOOL_PASSWORD=your-password
+```
+
+> **Security Note**: The `.env` file is excluded from version control via `.gitignore`. Never commit credentials to git.
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+### Initialize Database
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+```bash
+# Create the database with schema and views
+powerschool init-db
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+# Reset existing database
+powerschool init-db --force
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### Sync Data from PowerSchool
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+```bash
+# Full sync (opens browser, logs in, scrapes all students)
+powerschool sync
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+# Headless mode (no visible browser)
+powerschool sync --headless
+```
+
+### View Grades
+
+```bash
+# Show current grades for a student
+powerschool grades -s "StudentName"
+```
+
+### Check Missing Assignments
+
+```bash
+# Show missing assignments for all students
+powerschool missing
+
+# Show for specific student
+powerschool missing -s "StudentName"
+```
+
+### Generate Reports
+
+```bash
+# Generate weekly report for a student
+powerschool report -s "StudentName"
+```
+
+### Database Status
+
+```bash
+# Show database statistics and student overview
+powerschool status
+```
+
+### MCP Server (AI Integration)
+
+```bash
+# Start the MCP server for AI agents
+powerschool serve-mcp
+```
+
+## Project Structure
+
+```text
+schoolconnect/
+├── src/
+│   ├── cli/              # Command-line interface
+│   │   └── main.py       # Click-based CLI commands
+│   ├── database/         # SQLite database layer
+│   │   ├── connection.py # Connection management
+│   │   ├── repository.py # Data access methods
+│   │   ├── schema.sql    # Database schema
+│   │   └── views.sql     # Analysis views
+│   ├── mcp_server/       # MCP server for AI agents
+│   │   └── server.py     # MCP protocol implementation
+│   └── scraper/          # Web scraping components
+│       └── parsers/      # HTML parsing logic
+├── scripts/              # Standalone scraping scripts
+│   ├── scrape_full.py    # Full data scrape
+│   └── load_data.py      # Load scraped data to DB
+├── tests/                # Test suite
+├── pyproject.toml        # Project configuration
+└── .env                  # Credentials (not in git)
+```
+
+## Database Views
+
+The database includes pre-built views for common queries:
+
+| View | Description |
+|------|-------------|
+| `v_current_grades` | Latest grades by student and course |
+| `v_missing_assignments` | All missing assignments with details |
+| `v_grade_trends` | Grade progression Q1 -> Q2 -> S1 -> Q3 -> Q4 -> S2 |
+| `v_attendance_alerts` | Students with attendance below 95% |
+| `v_upcoming_assignments` | Assignments due in next 14 days |
+| `v_student_summary` | High-level summary per student |
+| `v_action_items` | Prioritized parent action items |
+
+## MCP Tools
+
+The MCP server exposes these tools for AI agents:
+
+- `get_students` - List all students
+- `get_grades` - Get grades for a student
+- `get_missing_assignments` - Get missing work
+- `get_attendance` - Get attendance data
+- `get_action_items` - Get prioritized action items
+- `custom_query` - Run read-only SQL queries (restricted to allowed tables/views)
+
+## Development
+
+```bash
+# Install dev dependencies
+uv sync --all-extras
+
+# Run tests
+uv run pytest
+
+# Run linter
+uv run ruff check src/
+
+# Type checking
+uv run mypy src/
+```
+
+## Privacy and Security
+
+This tool handles sensitive student data (FERPA protected). Best practices:
+
+- Store `.env` credentials securely and never commit to git
+- Database files (`.db`) contain PII - keep them local
+- The `raw_html/` directory may contain scraped data - excluded from git
+- MCP server custom queries are restricted to read-only operations on allowed tables
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+MIT License - See [LICENSE](LICENSE) for details.

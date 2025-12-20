@@ -105,10 +105,11 @@ def missing(student: str):
     missing_list = repo.get_missing_assignments(student_id)
 
     if not missing_list:
-        console.print(Panel(
-            "[green]No missing assignments! 🎉[/green]",
-            title=f"Missing Assignments - {title}"
-        ))
+        console.print(
+            Panel(
+                "[green]No missing assignments! 🎉[/green]", title=f"Missing Assignments - {title}"
+            )
+        )
         return
 
     table = Table(title=f"Missing Assignments - {title}")
@@ -119,14 +120,14 @@ def missing(student: str):
     table.add_column("Days Overdue", justify="right")
 
     for m in missing_list:
-        days = m.get('days_overdue', 0)
+        days = m.get("days_overdue", 0)
         days_str = f"{int(days)}" if days else "-"
         table.add_row(
-            m['assignment_name'][:40],
-            m['course_name'][:25],
-            m.get('teacher_name', 'N/A')[:20],
-            str(m.get('due_date', 'N/A')),
-            days_str
+            m["assignment_name"][:40],
+            m["course_name"][:25],
+            m.get("teacher_name", "N/A")[:20],
+            str(m.get("due_date", "N/A")),
+            days_str,
         )
 
     console.print(table)
@@ -145,7 +146,7 @@ def grades(student: str):
         # Show available students
         students = repo.get_students()
         if students:
-            names = ", ".join([st['first_name'] for st in students])
+            names = ", ".join([st["first_name"] for st in students])
             console.print(f"[yellow]Available students: {names}[/yellow]")
         return
 
@@ -162,13 +163,19 @@ def grades(student: str):
     table.add_column("Teacher")
 
     for g in grades_list:
-        grade = g.get('letter_grade', 'N/A')
-        grade_style = "green" if grade in ["A", "4", "3.5", "P"] else "yellow" if grade in ["B", "3"] else "red"
+        grade = g.get("letter_grade", "N/A")
+        grade_style = (
+            "green"
+            if grade in ["A", "4", "3.5", "P"]
+            else "yellow"
+            if grade in ["B", "3"]
+            else "red"
+        )
         table.add_row(
-            g['course_name'][:30],
+            g["course_name"][:30],
             f"[{grade_style}]{grade}[/{grade_style}]",
-            g['term'],
-            g.get('teacher_name', 'N/A')[:20]
+            g["term"],
+            g.get("teacher_name", "N/A")[:20],
         )
 
     console.print(table)
@@ -193,8 +200,9 @@ def report(student: str):
 
     # Build report
     from datetime import datetime
-    report_md = f"""# Weekly Report: {s['first_name']}
-*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}*
+
+    report_md = f"""# Weekly Report: {s["first_name"]}
+*Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}*
 
 ## Overview
 """
@@ -203,14 +211,14 @@ def report(student: str):
         report_md += f"- **Missing Assignments**: {summary['missing_assignments']}\n"
 
     if attendance:
-        rate = attendance.get('attendance_rate', 0)
+        rate = attendance.get("attendance_rate", 0)
         status = "✅" if rate >= 95 else "⚠️" if rate >= 90 else "🔴"
         report_md += f"- **Attendance**: {rate:.1f}% {status}\n"
 
     report_md += "\n## Current Grades\n"
     if grades_list:
         for g in grades_list:
-            grade = g.get('letter_grade', '-')
+            grade = g.get("letter_grade", "-")
             report_md += f"- {g['course_name']}: **{grade}**\n"
 
     report_md += "\n## Missing Work\n"
@@ -261,8 +269,8 @@ def status():
     table.add_column("Item", style="cyan")
     table.add_column("Value")
 
-    for item, count in info.get('row_counts', {}).items():
-        if not item.startswith('sqlite_'):
+    for item, count in info.get("row_counts", {}).items():
+        if not item.startswith("sqlite_"):
             table.add_row(item.title(), str(count))
 
     console.print(table)
@@ -274,7 +282,7 @@ def status():
         for s in students:
             summary = repo.get_student_summary(s["id"])
             if summary:
-                missing_count = summary.get('missing_assignments', 0)
+                missing_count = summary.get("missing_assignments", 0)
                 missing_style = "red" if missing_count > 0 else "green"
                 console.print(
                     f"  • {s['first_name']}: "
@@ -297,16 +305,18 @@ def actions(student: str):
     action_list = repo.get_action_items(s["id"])
 
     if not action_list:
-        console.print(Panel(
-            "[green]No action items - everything looks good! 🎉[/green]",
-            title=f"Action Items - {s['first_name']}"
-        ))
+        console.print(
+            Panel(
+                "[green]No action items - everything looks good! 🎉[/green]",
+                title=f"Action Items - {s['first_name']}",
+            )
+        )
         return
 
     console.print(Panel(f"[bold]Action Items - {s['first_name']}[/bold]"))
 
     for a in action_list:
-        priority = a.get('priority', 'medium').upper()
+        priority = a.get("priority", "medium").upper()
         if priority in ["HIGH", "CRITICAL"]:
             emoji = "🔴"
             style = "red"
@@ -315,7 +325,7 @@ def actions(student: str):
             style = "yellow"
 
         console.print(f"{emoji} [{style}][{priority}][/{style}] {a['message']}")
-        if a.get('suggested_action'):
+        if a.get("suggested_action"):
             console.print(f"   → {a['suggested_action']}")
         console.print()
 
