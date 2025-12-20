@@ -6,6 +6,13 @@ include:
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
 
+# Override security jobs to not inherit Python before_script
+secret_detection:
+  before_script: []
+
+sast:
+  before_script: []
+
 stages:
   - lint
   - test

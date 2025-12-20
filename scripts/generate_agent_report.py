@@ -8,7 +8,6 @@ producing artifacts for both AI agents and human reviewers.
 import json
 import os
 import sqlite3
-import sys
 from datetime import datetime
 from pathlib import Path
 

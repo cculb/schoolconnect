@@ -3,8 +3,8 @@
 
 import json
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -90,7 +90,7 @@ def load_scraped_data():
                         num = float(grade)
                         if num > 10:  # This is probably absences, not a grade
                             continue
-                except:
+                except ValueError:
                     pass
 
                 repo.add_grade(
@@ -131,7 +131,7 @@ def load_scraped_data():
                 # Try MM/DD/YYYY format
                 dt = datetime.strptime(due_date, "%m/%d/%Y")
                 due_date = dt.strftime("%Y-%m-%d")
-            except:
+            except ValueError:
                 due_date = None
 
         repo.add_assignment(
@@ -194,7 +194,7 @@ def load_scraped_data():
             tardies=int(total_tardies / max(len(data.get("courses", [1])), 1)),
             total_days=estimated_days,
         )
-        print(f"  Estimated attendance from course data")
+        print("  Estimated attendance from course data")
         print(f"  Total absences across courses: {total_absences}")
         print(f"  Total tardies across courses: {total_tardies}")
 
@@ -273,7 +273,7 @@ def load_scraped_data():
 
     summary = repo.get_student_summary(current_student_id)
     if summary:
-        print(f"\nStudent summary:")
+        print("\nStudent summary:")
         print(f"  Name: {summary['student_name']}")
         print(f"  Courses: {summary['course_count']}")
         print(f"  Missing: {summary['missing_assignments']}")

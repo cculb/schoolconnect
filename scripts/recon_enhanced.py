@@ -85,7 +85,7 @@ def scrape_home_page(page: Page) -> dict:
 
                 # Parse course name and teacher
                 course_text = course_cell.get_text(strip=True)
-                course_link = course_cell.select_one("a")
+                _ = course_cell.select_one("a")  # Link exists but not used currently
 
                 # Extract course name (before "Email")
                 if "Email" in course_text:
@@ -158,7 +158,7 @@ def scrape_assignments_page(page: Page, show_all: bool = True) -> list:
                     try:
                         select.select_option(label=opt.inner_text())
                         page.wait_for_timeout(500)
-                    except:
+                    except Exception:
                         pass
                     break
     except Exception as e:

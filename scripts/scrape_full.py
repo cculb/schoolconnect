@@ -226,7 +226,7 @@ def scrape_assignments_q2(page: Page) -> list:
         # Look for term filter and click Q2
         page.click("text=Q2", timeout=3000)
         page.wait_for_timeout(2000)
-    except:
+    except Exception:
         print("  Could not click Q2 filter, trying dropdown...")
         try:
             # Try to find a term dropdown
@@ -306,7 +306,7 @@ def scrape_attendance_dashboard(page: Page) -> dict:
     try:
         # Wait for any attendance percentage to appear
         page.wait_for_selector("text=/\\d+\\.?\\d*%/", timeout=10000)
-    except:
+    except Exception:
         print("  Waiting longer for attendance data...")
         page.wait_for_timeout(5000)
 

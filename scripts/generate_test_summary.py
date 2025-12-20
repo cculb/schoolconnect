@@ -36,11 +36,12 @@ def parse_junit_xml(xml_path: Path) -> dict:
         for testcase in testsuite.findall(".//testcase"):
             failure = testcase.find("failure")
             error = testcase.find("error")
-            if failure is not None or error is not None:
+            result_element = failure if failure is not None else error
+            if result_element is not None:
                 failures.append({
                     "name": testcase.get("name"),
                     "classname": testcase.get("classname"),
-                    "message": (failure or error).get("message", ""),
+                    "message": result_element.get("message", ""),
                 })
 
         return {

@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from bs4 import BeautifulSoup
-from playwright.sync_api import Browser, Page, sync_playwright
+from playwright.sync_api import Page, sync_playwright
 
 from src.scraper.auth import get_base_url, get_credentials, login
 
@@ -231,7 +231,7 @@ def run_recon():
                 print(f"      headers: {table['headers']}")
 
         if analysis["key_elements"]:
-            print(f"  Key elements found:")
+            print("  Key elements found:")
             for elem in analysis["key_elements"]:
                 print(f"    - {elem['selector']}: {elem['count']} elements")
 
@@ -245,13 +245,13 @@ def run_recon():
         print(f"\nStudent Info: {student_info}")
 
         grades = extract_grades_preview(all_html["home"])
-        print(f"\nGrades Preview (first 10 rows):")
+        print("\nGrades Preview (first 10 rows):")
         for row in grades[:10]:
             print(f"  {row}")
 
     if "assignments" in all_html:
         assignments = extract_assignments_preview(all_html["assignments"])
-        print(f"\nAssignments Preview (first 10 rows):")
+        print("\nAssignments Preview (first 10 rows):")
         for row in assignments[:10]:
             print(f"  {row}")
 
