@@ -67,9 +67,8 @@ def validate(db_path: Path) -> Tuple[bool, list, list]:
         # Check missing assignments
         try:
             cursor.execute("""
-                SELECT c.course_name, a.assignment_name
+                SELECT a.course_name, a.assignment_name
                 FROM assignments a
-                LEFT JOIN courses c ON a.course_id = c.course_id
                 WHERE a.status = 'Missing'
             """)
             missing = cursor.fetchall()
@@ -140,7 +139,7 @@ def validate(db_path: Path) -> Tuple[bool, list, list]:
 
         # Check course count
         try:
-            cursor.execute("SELECT COUNT(DISTINCT course_id) FROM courses")
+            cursor.execute("SELECT COUNT(DISTINCT id) FROM courses")
             course_count = cursor.fetchone()[0]
             expected_min = GROUND_TRUTH["courses_min"]
 

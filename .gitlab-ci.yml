@@ -325,11 +325,57 @@ run-full-e2e:
         echo "WARNING: PowerSchool credentials not configured"
         echo "Set POWERSCHOOL_URL, POWERSCHOOL_USERNAME, POWERSCHOOL_PASSWORD in CI/CD variables"
       fi
-    # Step 2: Run E2E tests
-    - pytest tests/e2e/ -v --tb=long --junitxml=reports/manual-e2e-results.xml || true
+    # Step 2: Run E2E tests and capture results
+    - |
+      set +e  # Don't exit on error
+      pytest tests/e2e/ -v --tb=long --junitxml=reports/manual-e2e-results.xml
+      PYTEST_EXIT_CODE=$?
+      set -e
+
+      # Parse test results
+      echo ""
+      echo "=============================================="
+      echo "E2E TEST RESULTS SUMMARY"
+      echo "=============================================="
+
+      # Extract counts from JUnit XML
+      if [ -f reports/manual-e2e-results.xml ]; then
+        TESTS=$(grep -oP 'tests="\K[0-9]+' reports/manual-e2e-results.xml | head -1 || echo "0")
+        FAILURES=$(grep -oP 'failures="\K[0-9]+' reports/manual-e2e-results.xml | head -1 || echo "0")
+        ERRORS=$(grep -oP 'errors="\K[0-9]+' reports/manual-e2e-results.xml | head -1 || echo "0")
+        SKIPPED=$(grep -oP 'skipped="\K[0-9]+' reports/manual-e2e-results.xml | head -1 || echo "0")
+
+        PASSED=$((TESTS - FAILURES - ERRORS - SKIPPED))
+
+        echo "Total tests: $TESTS"
+        echo "Passed: $PASSED"
+        echo "Failed: $FAILURES"
+        echo "Errors: $ERRORS"
+        echo "Skipped: $SKIPPED"
+        echo ""
+
+        # Determine job result
+        if [ "$FAILURES" -gt 0 ] || [ "$ERRORS" -gt 0 ]; then
+          echo "❌ FAILED: $FAILURES test failures, $ERRORS errors"
+          FINAL_EXIT=1
+        elif [ "$PASSED" -eq 0 ]; then
+          echo "⚠️ WARNING: No tests passed (all skipped or no tests ran)"
+          echo "This may indicate missing test implementations."
+          FINAL_EXIT=0  # Allow pipeline to continue but flag as warning
+        else
+          echo "✅ PASSED: $PASSED tests passed"
+          FINAL_EXIT=0
+        fi
+      else
+        echo "❌ No test results file found"
+        FINAL_EXIT=1
+      fi
+      echo "=============================================="
     # Step 3: Generate reports
     - python scripts/generate_test_summary.py > reports/test-summary.json || true
     - python scripts/validate_ground_truth.py 2>&1 | tee reports/ground-truth.txt || true
+    # Step 4: Final exit based on test results
+    - exit ${FINAL_EXIT:-0}
   artifacts:
     when: always
     paths:
