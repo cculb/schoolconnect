@@ -1,0 +1,58 @@
+# Environment and secrets
+.env
+*.db
+*.sqlite
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+reports/
+*.xml
+*.html
+
+# Raw HTML (contains personal data)
+raw_html/
+
+# Playwright
+playwright-report/
+test-results/
+.playwright/
+
+# CI/CD caches
+.pip-cache/
+.mypy_cache/
+.ruff_cache/

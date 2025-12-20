@@ -1,0 +1,327 @@
+# PowerSchool Portal - GitLab CI Pipeline
+# Supports both automated CI and agent-triggered development cycles
+
+stages:
+  - lint
+  - test-unit
+  - test-integration
+  - test-e2e
+  - report
+  - deploy
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  PLAYWRIGHT_BROWSERS_PATH: "$CI_PROJECT_DIR/.playwright"
+  PYTHON_VERSION: "3.12"
+  # PowerSchool credentials (set in GitLab CI/CD Settings > Variables)
+  # POWERSCHOOL_URL: https://yourdistrict.powerschool.com
+  # POWERSCHOOL_USERNAME: (masked)
+  # POWERSCHOOL_PASSWORD: (masked, base64 encoded)
+
+# Cache Python deps and Playwright browsers
+cache:
+  key: "${CI_COMMIT_REF_SLUG}-${PYTHON_VERSION}"
+  paths:
+    - .pip-cache/
+    - .playwright/
+    - .venv/
+
+# Default settings
+default:
+  image: python:${PYTHON_VERSION}-slim
+  before_script:
+    - python -m venv .venv
+    - source .venv/bin/activate
+    - pip install --upgrade pip
+    - pip install -e ".[dev]"
+
+# Job templates
+.python-base:
+  before_script:
+    - python -m venv .venv
+    - source .venv/bin/activate
+    - pip install --upgrade pip
+    - pip install -e ".[dev]"
+
+.playwright-base:
+  before_script:
+    - apt-get update && apt-get install -y wget gnupg
+    - python -m venv .venv
+    - source .venv/bin/activate
+    - pip install --upgrade pip
+    - pip install -e ".[dev]"
+    - playwright install chromium
+    - playwright install-deps chromium
+    # Decode base64 password if needed
+    - |
+      if [ -n "$POWERSCHOOL_PASSWORD" ]; then
+        export POWERSCHOOL_PASSWORD_DECODED=$(echo "$POWERSCHOOL_PASSWORD" | base64 -d 2>/dev/null || echo "$POWERSCHOOL_PASSWORD")
+        export POWERSCHOOL_PASSWORD="$POWERSCHOOL_PASSWORD_DECODED"
+      fi
+
+#------------------------------------------------------------------------------
+# STAGE: Lint
+#------------------------------------------------------------------------------
+lint:
+  stage: lint
+  extends: .python-base
+  script:
+    - pip install ruff mypy
+    - ruff check src/ tests/ --output-format=gitlab
+    - ruff format --check src/ tests/
+    - mypy src/ --ignore-missing-imports || true  # Non-blocking for now
+  artifacts:
+    when: always
+    reports:
+      codequality: gl-code-quality-report.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "api"
+    - if: $CI_PIPELINE_SOURCE == "trigger"
+
+#------------------------------------------------------------------------------
+# STAGE: Unit Tests
+#------------------------------------------------------------------------------
+test-unit:
+  stage: test-unit
+  extends: .python-base
+  script:
+    - mkdir -p reports
+    - pytest tests/unit/ -v --tb=short --junitxml=reports/unit-results.xml -m "unit or not (integration or e2e)" || true
+  artifacts:
+    when: always
+    paths:
+      - reports/
+    reports:
+      junit: reports/unit-results.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "api"
+    - if: $CI_PIPELINE_SOURCE == "trigger"
+
+#------------------------------------------------------------------------------
+# STAGE: Integration Tests
+#------------------------------------------------------------------------------
+test-integration:
+  stage: test-integration
+  extends: .python-base
+  script:
+    - mkdir -p reports
+    - pytest tests/integration/ -v --tb=short --junitxml=reports/integration-results.xml -m "integration or not (unit or e2e)" || true
+  artifacts:
+    when: always
+    paths:
+      - reports/
+    reports:
+      junit: reports/integration-results.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "api"
+    - if: $CI_PIPELINE_SOURCE == "trigger"
+
+#------------------------------------------------------------------------------
+# STAGE: E2E Tests (Live PowerSchool)
+#------------------------------------------------------------------------------
+test-e2e:
+  stage: test-e2e
+  extends: .playwright-base
+  script:
+    - mkdir -p reports
+    - |
+      # Run E2E tests with real PowerSchool
+      pytest tests/e2e/ -v \
+        --tb=long \
+        --junitxml=reports/e2e-results.xml \
+        -m "e2e or not (unit or integration)" \
+        2>&1 | tee reports/e2e-output.log || true
+
+    # Generate structured JSON for agent consumption
+    - python scripts/generate_test_summary.py > reports/test-summary.json || true
+  artifacts:
+    when: always
+    paths:
+      - reports/
+      - raw_html/
+      - powerschool.db
+    reports:
+      junit: reports/e2e-results.xml
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "api"
+    - if: $CI_PIPELINE_SOURCE == "trigger"
+    - if: $RUN_E2E == "true"
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - script_failure
+
+#------------------------------------------------------------------------------
+# STAGE: Test Report Generation
+#------------------------------------------------------------------------------
+generate-report:
+  stage: report
+  extends: .python-base
+  script:
+    - python scripts/generate_agent_report.py
+  artifacts:
+    when: always
+    paths:
+      - reports/agent-report.json
+      - reports/human-report.md
+    expire_in: 30 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "api"
+    - if: $CI_PIPELINE_SOURCE == "trigger"
+    - when: on_success
+  needs:
+    - job: test-unit
+      optional: true
+    - job: test-integration
+      optional: true
+    - job: test-e2e
+      optional: true
+
+#------------------------------------------------------------------------------
+# AGENT DEVELOPMENT WORKFLOWS
+#------------------------------------------------------------------------------
+
+# Triggered by AI agents for iterative development
+agent-dev-cycle:
+  stage: test-e2e
+  extends: .playwright-base
+  variables:
+    AGENT_TASK: "full-validation"
+  script:
+    - mkdir -p reports
+    - |
+      echo "Agent Development Cycle"
+      echo "Task: $AGENT_TASK"
+      echo "Triggered by: $CI_PIPELINE_SOURCE"
+
+      case "$AGENT_TASK" in
+        "scraper-only")
+          pytest tests/e2e/test_scraper.py -v --tb=long --junitxml=reports/e2e-results.xml
+          ;;
+        "mcp-only")
+          pytest tests/e2e/test_mcp_tools.py -v --tb=long --junitxml=reports/e2e-results.xml
+          ;;
+        "alerts-only")
+          pytest tests/e2e/test_alerts.py -v --tb=long --junitxml=reports/e2e-results.xml
+          ;;
+        "full-validation")
+          pytest tests/e2e/ -v --tb=long --junitxml=reports/e2e-results.xml
+          ;;
+        "ground-truth")
+          python scripts/validate_ground_truth.py | tee reports/ground-truth.txt
+          ;;
+        "unit-only")
+          pytest tests/unit/ -v --tb=short --junitxml=reports/e2e-results.xml
+          ;;
+        "integration-only")
+          pytest tests/integration/ -v --tb=short --junitxml=reports/e2e-results.xml
+          ;;
+        *)
+          echo "Unknown task: $AGENT_TASK"
+          exit 1
+          ;;
+      esac
+
+    # Always generate agent-readable output
+    - python scripts/generate_test_summary.py > reports/test-summary.json || true
+  artifacts:
+    when: always
+    paths:
+      - reports/
+      - raw_html/
+      - powerschool.db
+    reports:
+      junit: reports/e2e-results.xml
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "api" && $AGENT_TASK != null
+      variables:
+        AGENT_TASK: $AGENT_TASK
+    - if: $CI_PIPELINE_SOURCE == "trigger" && $AGENT_TASK != null
+      variables:
+        AGENT_TASK: $AGENT_TASK
+  allow_failure: false
+
+# Quick validation for agent iteration
+agent-quick-check:
+  stage: test-unit
+  extends: .python-base
+  script:
+    - mkdir -p reports
+    - pytest tests/unit/ tests/integration/ -v --tb=short -x --junitxml=reports/quick-check-results.xml
+    - |
+      echo "{\"status\": \"quick_check_passed\", \"timestamp\": \"$(date -Iseconds)\"}" > reports/quick-check.json
+  artifacts:
+    when: always
+    paths:
+      - reports/quick-check.json
+      - reports/quick-check-results.xml
+    reports:
+      junit: reports/quick-check-results.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "api" && $QUICK_CHECK == "true"
+    - if: $CI_PIPELINE_SOURCE == "trigger" && $QUICK_CHECK == "true"
+
+#------------------------------------------------------------------------------
+# DEPLOYMENT (Future)
+#------------------------------------------------------------------------------
+deploy-staging:
+  stage: deploy
+  script:
+    - echo "Deploy to staging environment"
+    # Future: Deploy MCP server, sync service, etc.
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  environment:
+    name: staging
+
+#------------------------------------------------------------------------------
+# MANUAL TRIGGERS
+#------------------------------------------------------------------------------
+.manual-job:
+  when: manual
+  allow_failure: true
+
+run-full-e2e:
+  extends:
+    - .playwright-base
+    - .manual-job
+  stage: test-e2e
+  script:
+    - mkdir -p reports
+    - pytest tests/e2e/ -v --tb=long --junitxml=reports/manual-e2e-results.xml
+    - python scripts/generate_test_summary.py > reports/test-summary.json
+    - python scripts/validate_ground_truth.py | tee reports/ground-truth.txt
+  artifacts:
+    when: always
+    paths:
+      - reports/
+      - raw_html/
+      - powerschool.db
+    expire_in: 14 days
+  rules:
+    - if: $CI_COMMIT_BRANCH
+      when: manual
+
+validate-ground-truth:
+  extends:
+    - .python-base
+    - .manual-job
+  stage: test-e2e
+  script:
+    - python scripts/validate_ground_truth.py
+  rules:
+    - if: $CI_COMMIT_BRANCH
+      when: manual

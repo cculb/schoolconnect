@@ -1,0 +1,182 @@
+# Workflow for AI agents to trigger and monitor
+name: Agent Trigger
+
+on:
+  repository_dispatch:
+    types: [agent-run, agent-validate, agent-quick-check]
+
+env:
+  PYTHON_VERSION: '3.12'
+  POWERSCHOOL_URL: ${{ secrets.POWERSCHOOL_URL }}
+  POWERSCHOOL_USERNAME: ${{ secrets.POWERSCHOOL_USERNAME }}
+  POWERSCHOOL_PASSWORD_B64: ${{ secrets.POWERSCHOOL_PASSWORD }}
+
+jobs:
+  agent-triggered-run:
+    name: Agent-Triggered Run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: Create reports directory
+        run: mkdir -p reports
+
+      - name: Decode PowerSchool password
+        run: |
+          if [ -n "$POWERSCHOOL_PASSWORD_B64" ]; then
+            DECODED=$(echo "$POWERSCHOOL_PASSWORD_B64" | base64 -d 2>/dev/null || echo "$POWERSCHOOL_PASSWORD_B64")
+            echo "POWERSCHOOL_PASSWORD=$DECODED" >> $GITHUB_ENV
+          fi
+
+      - name: Log trigger info
+        run: |
+          echo "Event type: ${{ github.event.action }}"
+          echo "Task: ${{ github.event.client_payload.task }}"
+          echo "Options: ${{ toJson(github.event.client_payload) }}"
+
+      - name: Run requested task
+        env:
+          TASK: ${{ github.event.client_payload.task }}
+        run: |
+          echo "Agent requested task: ${TASK:-full}"
+
+          case "${TASK:-full}" in
+            "scraper")
+              pytest tests/e2e/test_scraper.py -v --tb=long --junitxml=reports/results.xml || true
+              ;;
+            "mcp")
+              pytest tests/e2e/test_mcp_tools.py -v --tb=long --junitxml=reports/results.xml || true
+              ;;
+            "alerts")
+              pytest tests/e2e/test_alerts.py -v --tb=long --junitxml=reports/results.xml || true
+              ;;
+            "ground-truth")
+              python scripts/validate_ground_truth.py | tee reports/ground-truth.txt
+              ;;
+            "quick")
+              pytest tests/unit/ tests/integration/ -v --tb=short -x --junitxml=reports/results.xml || true
+              ;;
+            "unit")
+              pytest tests/unit/ -v --tb=short --junitxml=reports/results.xml || true
+              ;;
+            "integration")
+              pytest tests/integration/ -v --tb=short --junitxml=reports/results.xml || true
+              ;;
+            "full")
+              pytest tests/e2e/ -v --tb=long --junitxml=reports/results.xml || true
+              ;;
+            *)
+              pytest tests/ -v --junitxml=reports/results.xml || true
+              ;;
+          esac
+
+      - name: Generate summary
+        if: always()
+        run: |
+          python scripts/generate_test_summary.py > reports/test-summary.json || true
+          python scripts/generate_agent_report.py || true
+
+      - name: Output for agent
+        if: always()
+        run: |
+          echo "::notice::Test Summary"
+          cat reports/test-summary.json || echo '{"error": "No summary generated"}'
+          echo ""
+          echo "::notice::Agent Report"
+          cat reports/agent-report.json || echo '{"error": "No agent report generated"}'
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-results-${{ github.run_id }}
+          path: reports/
+          retention-days: 7
+
+  # Quick validation job for fast feedback
+  quick-validation:
+    name: Quick Validation
+    runs-on: ubuntu-latest
+    if: github.event.action == 'agent-quick-check'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run quick checks
+        run: |
+          mkdir -p reports
+          # Lint
+          pip install ruff
+          ruff check src/ tests/ || true
+
+          # Unit + Integration tests (stop on first failure)
+          pytest tests/unit/ tests/integration/ -v --tb=short -x --junitxml=reports/quick-results.xml || true
+
+      - name: Generate quick summary
+        if: always()
+        run: |
+          python scripts/generate_test_summary.py > reports/test-summary.json || true
+          echo '{"type": "quick-check", "timestamp": "'$(date -Iseconds)'"}' > reports/quick-meta.json
+
+      - name: Upload quick results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quick-check-${{ github.run_id }}
+          path: reports/
+
+  # Ground truth validation only
+  validate-ground-truth:
+    name: Validate Ground Truth
+    runs-on: ubuntu-latest
+    if: github.event.action == 'agent-validate'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Check for database
+        run: |
+          if [ -f "powerschool.db" ]; then
+            echo "Database found"
+          else
+            echo "::warning::Database not found - validation may fail"
+          fi
+
+      - name: Validate ground truth
+        run: |
+          mkdir -p reports
+          python scripts/validate_ground_truth.py | tee reports/ground-truth.txt
+
+      - name: Upload validation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-${{ github.run_id }}
+          path: reports/
