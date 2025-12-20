@@ -3,49 +3,22 @@
 Enhanced reconnaissance script that handles dynamic content and extracts actual data.
 """
 
-import os
-import sys
 import json
 import re
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from playwright.sync_api import sync_playwright, Page
-from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+from playwright.sync_api import Page, sync_playwright
 
-load_dotenv()
+from src.scraper.auth import get_base_url, get_credentials, login
 
-BASE_URL = os.getenv("POWERSCHOOL_URL")
-if not BASE_URL:
-    raise ValueError("POWERSCHOOL_URL environment variable is required")
-USERNAME = os.getenv("POWERSCHOOL_USERNAME")
-PASSWORD = os.getenv("POWERSCHOOL_PASSWORD")
-
+BASE_URL = get_base_url()
 RAW_HTML_DIR = Path(__file__).parent.parent / "raw_html"
 RAW_HTML_DIR.mkdir(exist_ok=True)
-
-
-def login(page: Page) -> bool:
-    """Login to PowerSchool parent portal."""
-    print(f"Navigating to {BASE_URL}/public/home.html")
-    page.goto(f"{BASE_URL}/public/home.html", wait_until="networkidle")
-    page.wait_for_selector("#fieldAccount", timeout=10000)
-
-    print(f"Logging in as {USERNAME}...")
-    page.fill("#fieldAccount", USERNAME)
-    page.fill("#fieldPassword", PASSWORD)
-    page.click("#btn-enter-sign-in")
-
-    try:
-        page.wait_for_url("**/guardian/**", timeout=15000)
-        print("Login successful!")
-        return True
-    except Exception as e:
-        print(f"Login failed: {e}")
-        return False
 
 
 def get_student_info(page: Page) -> dict:
@@ -381,8 +354,10 @@ def run_enhanced_recon():
     print(f"Time: {datetime.now().isoformat()}")
     print("=" * 60)
 
-    if not USERNAME or not PASSWORD:
-        print("ERROR: Missing credentials. Check .env file.")
+    try:
+        get_credentials()  # Validate credentials are available
+    except ValueError as e:
+        print(f"ERROR: {e}")
         sys.exit(1)
 
     all_data = {}

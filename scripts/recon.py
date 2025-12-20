@@ -4,28 +4,21 @@ Reconnaissance script for PowerSchool Parent Portal.
 Logs in and saves raw HTML from all important pages.
 """
 
-import os
-import sys
 import json
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from playwright.sync_api import sync_playwright, Page, Browser
-from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+from playwright.sync_api import Browser, Page, sync_playwright
 
-# Load environment variables
-load_dotenv()
+from src.scraper.auth import get_base_url, get_credentials, login
 
 # Configuration
-BASE_URL = os.getenv("POWERSCHOOL_URL")
-if not BASE_URL:
-    raise ValueError("POWERSCHOOL_URL environment variable is required")
-USERNAME = os.getenv("POWERSCHOOL_USERNAME")
-PASSWORD = os.getenv("POWERSCHOOL_PASSWORD")
+BASE_URL = get_base_url()
 
 # Pages to scrape
 PAGES = {
@@ -40,36 +33,6 @@ PAGES = {
 # Output directory
 RAW_HTML_DIR = Path(__file__).parent.parent / "raw_html"
 RAW_HTML_DIR.mkdir(exist_ok=True)
-
-
-def login(page: Page) -> bool:
-    """Login to PowerSchool parent portal."""
-    print(f"Navigating to {BASE_URL}/public/home.html")
-    page.goto(f"{BASE_URL}/public/home.html", wait_until="networkidle")
-
-    # Wait for login form
-    page.wait_for_selector("#fieldAccount", timeout=10000)
-
-    # Fill credentials
-    print(f"Logging in as {USERNAME}...")
-    page.fill("#fieldAccount", USERNAME)
-    page.fill("#fieldPassword", PASSWORD)
-
-    # Click submit
-    page.click("#btn-enter-sign-in")
-
-    # Wait for navigation to complete
-    try:
-        page.wait_for_url("**/guardian/**", timeout=15000)
-        print("Login successful!")
-        return True
-    except Exception as e:
-        print(f"Login failed: {e}")
-        # Check for error message
-        error = page.query_selector(".feedback-alert")
-        if error:
-            print(f"Error message: {error.inner_text()}")
-        return False
 
 
 def save_page_html(page: Page, name: str, url_path: str) -> str:
@@ -212,8 +175,10 @@ def run_recon():
     print(f"Time: {datetime.now().isoformat()}")
     print("=" * 60)
 
-    if not USERNAME or not PASSWORD:
-        print("ERROR: Missing credentials. Check .env file.")
+    try:
+        get_credentials()  # Validate credentials are available
+    except ValueError as e:
+        print(f"ERROR: {e}")
         sys.exit(1)
 
     with sync_playwright() as p:

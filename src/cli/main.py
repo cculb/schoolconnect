@@ -19,9 +19,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import click
 from rich.console import Console
-from rich.markdown import Markdown
-from rich.panel import Panel
 from rich.table import Table
+from rich.panel import Panel
+from rich.markdown import Markdown
 
 from src.database.connection import init_database, verify_database
 from src.database.repository import Repository
@@ -51,7 +51,7 @@ def init_db(force: bool):
     init_database(force=force)
     info = verify_database()
 
-    console.print("[green]✓ Database initialized[/green]")
+    console.print(f"[green]✓ Database initialized[/green]")
     console.print(f"  Tables: {', '.join(info.get('tables', []))}")
     console.print(f"  Views: {len(info.get('views', []))} views created")
 
@@ -63,8 +63,8 @@ def sync(headless: bool, student: str):
     """Sync data from PowerSchool (runs scraper)."""
     try:
         # Import scraper (will fail if not installed)
-        from scripts.load_data import load_scraped_data
         from scripts.scrape_full import run_full_scrape
+        from scripts.load_data import load_scraped_data
 
         console.print("[blue]Starting PowerSchool sync...[/blue]")
         console.print("This will open a browser and log into PowerSchool.")
@@ -105,12 +105,10 @@ def missing(student: str):
     missing_list = repo.get_missing_assignments(student_id)
 
     if not missing_list:
-        console.print(
-            Panel(
-                "[green]No missing assignments! 🎉[/green]", title=f"Missing Assignments - {title}"
-            )
-        )
-        return
+        console.print(Panel(
+            "[green]No missing assignments! 🎉[/green]",
+            title=f"Missing Assignments - {title}"
+        ))
 
     table = Table(title=f"Missing Assignments - {title}")
     table.add_column("Assignment", style="red")
@@ -120,15 +118,15 @@ def missing(student: str):
     table.add_column("Days Overdue", justify="right")
 
     for m in missing_list:
-        days = m.get("days_overdue", 0)
-        days_str = f"{int(days)}" if days else "-"
+        days = m.get('days_overdue', 0)
+        days = m.get('days_overdue', 0)
         table.add_row(
-            m["assignment_name"][:40],
-            m["course_name"][:25],
-            m.get("teacher_name", "N/A")[:20],
-            str(m.get("due_date", "N/A")),
-            days_str,
-        )
+            m['assignment_name'][:40],
+            m['assignment_name'][:40],
+            m['course_name'][:25],
+            m.get('teacher_name', 'N/A')[:20],
+            str(m.get('due_date', 'N/A')),
+            days_str
 
     console.print(table)
     console.print(f"\n[bold red]Total missing: {len(missing_list)}[/bold red]")
@@ -146,8 +144,8 @@ def grades(student: str):
         # Show available students
         students = repo.get_students()
         if students:
-            names = ", ".join([st["first_name"] for st in students])
-            console.print(f"[yellow]Available students: {names}[/yellow]")
+            names = ", ".join([st['first_name'] for st in students])
+            names = ", ".join([st['first_name'] for st in students])
         return
 
     grades_list = repo.get_current_grades(s["id"])
@@ -163,19 +161,13 @@ def grades(student: str):
     table.add_column("Teacher")
 
     for g in grades_list:
-        grade = g.get("letter_grade", "N/A")
-        grade_style = (
-            "green"
-            if grade in ["A", "4", "3.5", "P"]
-            else "yellow"
-            if grade in ["B", "3"]
-            else "red"
-        )
+        grade = g.get('letter_grade', 'N/A')
+        grade_style = "green" if grade in ["A", "4", "3.5", "P"] else "yellow" if grade in ["B", "3"] else "red"
         table.add_row(
-            g["course_name"][:30],
+            g['course_name'][:30],
             f"[{grade_style}]{grade}[/{grade_style}]",
-            g["term"],
-            g.get("teacher_name", "N/A")[:20],
+            g['term'],
+            g.get('teacher_name', 'N/A')[:20]
         )
 
     console.print(table)
@@ -200,33 +192,31 @@ def report(student: str):
 
     # Build report
     from datetime import datetime
-
-    report_md = f"""# Weekly Report: {s["first_name"]}
-*Generated: {datetime.now().strftime("%Y-%m-%d %H:%M")}*
+    report_md = f"""# Weekly Report: {s['first_name']}
+*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}*
 
 ## Overview
 """
     if summary:
         report_md += f"- **Courses**: {summary['course_count']}\n"
-        report_md += f"- **Missing Assignments**: {summary['missing_assignments']}\n"
-
-    if attendance:
-        rate = attendance.get("attendance_rate", 0)
+    report_md = f"""# Weekly Report: {s['first_name']}
+*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}*
+        rate = attendance.get('attendance_rate', 0)
         status = "✅" if rate >= 95 else "⚠️" if rate >= 90 else "🔴"
         report_md += f"- **Attendance**: {rate:.1f}% {status}\n"
 
     report_md += "\n## Current Grades\n"
     if grades_list:
         for g in grades_list:
-            grade = g.get("letter_grade", "-")
-            report_md += f"- {g['course_name']}: **{grade}**\n"
+            grade = g.get('letter_grade', '-')
+        rate = attendance.get('attendance_rate', 0)
 
     report_md += "\n## Missing Work\n"
     if missing_list:
         for m in missing_list:
             report_md += f"- ❌ {m['assignment_name']} ({m['course_name']})\n"
     else:
-        report_md += "✅ No missing assignments!\n"
+            grade = g.get('letter_grade', '-')
 
     report_md += "\n## Action Items\n"
     if actions:
@@ -247,9 +237,7 @@ def serve_mcp():
 
     try:
         import asyncio
-
         from src.mcp_server.server import main
-
         asyncio.run(main())
     except KeyboardInterrupt:
         console.print("\n[yellow]Server stopped.[/yellow]")
@@ -258,7 +246,6 @@ def serve_mcp():
 
 
 @cli.command()
-def status():
     """Show database status and student overview."""
     repo = Repository()
     info = verify_database()
@@ -269,8 +256,8 @@ def status():
     table.add_column("Item", style="cyan")
     table.add_column("Value")
 
-    for item, count in info.get("row_counts", {}).items():
-        if not item.startswith("sqlite_"):
+    for item, count in info.get('row_counts', {}).items():
+        if not item.startswith('sqlite_'):
             table.add_row(item.title(), str(count))
 
     console.print(table)
@@ -278,11 +265,11 @@ def status():
     # Students overview
     students = repo.get_students()
     if students:
-        console.print("\n[bold]Students[/bold]")
-        for s in students:
+    for item, count in info.get('row_counts', {}).items():
+        if not item.startswith('sqlite_'):
             summary = repo.get_student_summary(s["id"])
             if summary:
-                missing_count = summary.get("missing_assignments", 0)
+                missing_count = summary.get('missing_assignments', 0)
                 missing_style = "red" if missing_count > 0 else "green"
                 console.print(
                     f"  • {s['first_name']}: "
@@ -291,7 +278,7 @@ def status():
                 )
 
 
-@cli.command()
+                missing_count = summary.get('missing_assignments', 0)
 @click.option("--student", "-s", required=True, help="Student name")
 def actions(student: str):
     """Show action items for a student."""
@@ -305,18 +292,16 @@ def actions(student: str):
     action_list = repo.get_action_items(s["id"])
 
     if not action_list:
-        console.print(
-            Panel(
-                "[green]No action items - everything looks good! 🎉[/green]",
-                title=f"Action Items - {s['first_name']}",
-            )
-        )
+        console.print(Panel(
+            "[green]No action items - everything looks good! 🎉[/green]",
+            title=f"Action Items - {s['first_name']}"
+        ))
         return
 
     console.print(Panel(f"[bold]Action Items - {s['first_name']}[/bold]"))
 
     for a in action_list:
-        priority = a.get("priority", "medium").upper()
+        priority = a.get('priority', 'medium').upper()
         if priority in ["HIGH", "CRITICAL"]:
             emoji = "🔴"
             style = "red"
@@ -325,7 +310,7 @@ def actions(student: str):
             style = "yellow"
 
         console.print(f"{emoji} [{style}][{priority}][/{style}] {a['message']}")
-        if a.get("suggested_action"):
+        if a.get('suggested_action'):
             console.print(f"   → {a['suggested_action']}")
         console.print()
 

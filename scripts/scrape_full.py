@@ -3,49 +3,22 @@
 Full PowerSchool scraper that extracts all data including course-level assignments.
 """
 
-import os
-import sys
 import json
 import re
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from playwright.sync_api import sync_playwright, Page
-from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+from playwright.sync_api import Page, sync_playwright
 
-load_dotenv()
+from src.scraper.auth import get_base_url, get_credentials, login
 
-BASE_URL = os.getenv("POWERSCHOOL_URL")
-if not BASE_URL:
-    raise ValueError("POWERSCHOOL_URL environment variable is required")
-USERNAME = os.getenv("POWERSCHOOL_USERNAME")
-PASSWORD = os.getenv("POWERSCHOOL_PASSWORD")
-
+BASE_URL = get_base_url()
 RAW_HTML_DIR = Path(__file__).parent.parent / "raw_html"
 RAW_HTML_DIR.mkdir(exist_ok=True)
-
-
-def login(page: Page) -> bool:
-    """Login to PowerSchool parent portal."""
-    print(f"Navigating to {BASE_URL}/public/home.html")
-    page.goto(f"{BASE_URL}/public/home.html", wait_until="networkidle")
-    page.wait_for_selector("#fieldAccount", timeout=10000)
-
-    print(f"Logging in as {USERNAME}...")
-    page.fill("#fieldAccount", USERNAME)
-    page.fill("#fieldPassword", PASSWORD)
-    page.click("#btn-enter-sign-in")
-
-    try:
-        page.wait_for_url("**/guardian/**", timeout=15000)
-        print("Login successful!")
-        return True
-    except Exception as e:
-        print(f"Login failed: {e}")
-        return False
 
 
 def get_students(page: Page) -> list:
@@ -444,22 +417,29 @@ def scrape_schedule(page: Page) -> list:
     return courses
 
 
-def run_full_scrape():
-    """Run full scraping operation."""
+def run_full_scrape(headless: bool = False, student_name: str | None = None):
+    """Run full scraping operation.
+    
+    Args:
+        headless: Run browser in headless mode (no visible window)
+        student_name: Optional student name to filter scraping to (not yet implemented)
+    """
     print("=" * 60)
     print("PowerSchool Full Scrape")
     print(f"Target: {BASE_URL}")
     print(f"Time: {datetime.now().isoformat()}")
     print("=" * 60)
 
-    if not USERNAME or not PASSWORD:
-        print("ERROR: Missing credentials")
+    try:
+        get_credentials()  # Validate credentials are available
+    except ValueError as e:
+        print(f"ERROR: Missing credentials - {e}")
         sys.exit(1)
 
     all_data = {}
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False, slow_mo=200)
+        browser = p.chromium.launch(headless=headless, slow_mo=200)
         context = browser.new_context(viewport={"width": 1280, "height": 900})
         page = context.new_page()
 
@@ -467,8 +447,28 @@ def run_full_scrape():
             browser.close()
             sys.exit(1)
 
-        # Scrape home page grades
+        # Scrape home page grades (this also navigates to home page)
         home_data = scrape_home_grades(page)
+
+        # If student_name is provided, switch to that student and re-scrape
+        if student_name:
+            students = home_data.get("students", [])
+            matching_student = None
+            for student in students:
+                if student_name.lower() in student.get("name", "").lower():
+                    matching_student = student
+                    break
+            
+            if matching_student:
+                print(f"Switching to student: {matching_student['name']}")
+                switch_student(page, matching_student["id"])
+                # Re-scrape after switching student
+                home_data = scrape_home_grades(page)
+            else:
+                print(f"WARNING: Student '{student_name}' not found. Available students:")
+                for student in students:
+                    print(f"  - {student['name']}")
+                print("Continuing with default student...")
         all_data["students"] = home_data["students"]
         all_data["current_student"] = home_data["current_student"]
         all_data["courses"] = home_data["courses"]
