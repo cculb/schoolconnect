@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh:*)",
+      "Bash(git:*)",
+      "Bash(pytest:*)",
+      "Bash(ruff:*)",
+      "Bash(python:*)",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep"
+    ]
+  },
+  "env": {
+    "PYTHONPATH": "src"
+  }
+}
