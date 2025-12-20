@@ -14,8 +14,8 @@ import pytest
 pytestmark = [
     pytest.mark.e2e,
     pytest.mark.skipif(
-        not os.getenv("POWERSCHOOL_USERNAME"),
-        reason="PowerSchool credentials not configured",
+        not os.getenv("POWERSCHOOL_URL") or not os.getenv("POWERSCHOOL_USERNAME"),
+        reason="PowerSchool credentials not configured (need POWERSCHOOL_URL and POWERSCHOOL_USERNAME)",
     ),
 ]
 

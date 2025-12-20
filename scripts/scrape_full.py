@@ -9,6 +9,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# Load .env file from current directory if available
+load_dotenv()
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from bs4 import BeautifulSoup
@@ -37,11 +42,7 @@ def get_students(page: Page) -> list:
             if match:
                 student_id = match.group(1)
                 is_selected = "selected" in a.find_parent("li").get("class", [])
-                students.append({
-                    "name": text,
-                    "id": student_id,
-                    "selected": is_selected
-                })
+                students.append({"name": text, "id": student_id, "selected": is_selected})
     return students
 
 
@@ -153,10 +154,7 @@ def scrape_home_grades(page: Page) -> dict:
                 data["courses"].append(course_data)
 
                 if course_link:
-                    data["course_links"].append({
-                        "course_name": course_name,
-                        "link": course_link
-                    })
+                    data["course_links"].append({"course_name": course_name, "link": course_link})
 
     (RAW_HTML_DIR / "home.html").write_text(html)
     return data
@@ -284,7 +282,7 @@ def scrape_assignments_q2(page: Page) -> list:
                         "percent": percent,
                         "letter_grade": letter_grade,
                         "codes": codes,
-                        "status": status
+                        "status": status,
                     }
                     assignments.append(assignment)
                     print(f"  Found: {assignment_name} ({course}) - {status}")
@@ -297,7 +295,10 @@ def scrape_assignments_q2(page: Page) -> list:
 def scrape_attendance_dashboard(page: Page) -> dict:
     """Scrape attendance dashboard."""
     print("Scraping attendance dashboard...")
-    page.goto(f"{BASE_URL}/guardian/mba_attendance_monitor/guardian_dashboard.html", wait_until="networkidle")
+    page.goto(
+        f"{BASE_URL}/guardian/mba_attendance_monitor/guardian_dashboard.html",
+        wait_until="networkidle",
+    )
     page.wait_for_timeout(5000)
 
     data = {"rate": 0.0, "days_present": 0, "days_absent": 0, "tardies": 0, "total_days": 0}
@@ -380,7 +381,9 @@ def scrape_attendance_dashboard(page: Page) -> dict:
         print(f"  Could not extract JS data: {e}")
 
     (RAW_HTML_DIR / "attendance.html").write_text(html)
-    print(f"  Attendance: {data['rate']}% - Present: {data['days_present']}, Absent: {data['days_absent']}, Tardies: {data['tardies']}")
+    print(
+        f"  Attendance: {data['rate']}% - Present: {data['days_present']}, Absent: {data['days_absent']}, Tardies: {data['tardies']}"
+    )
     return data
 
 
@@ -502,7 +505,9 @@ def run_full_scrape(headless: bool = False, student_name: str | None = None):
         missing = [a for a in all_assignments if a.get("status") == "Missing"]
         print(f"Missing assignments: {len(missing)}")
         for a in missing:
-            print(f"  - {a.get('assignment_name', a.get('assignment', 'Unknown'))} ({a.get('course', '')})")
+            print(
+                f"  - {a.get('assignment_name', a.get('assignment', 'Unknown'))} ({a.get('course', '')})"
+            )
 
         # Scrape schedule
         print("\n" + "=" * 40)
@@ -527,7 +532,9 @@ def run_full_scrape(headless: bool = False, student_name: str | None = None):
     print(f"Student: {all_data.get('current_student', {}).get('name', 'Unknown')}")
     print(f"Courses: {len(all_data.get('courses', []))}")
     print(f"Assignments: {len(all_data.get('assignments', []))}")
-    print(f"Missing: {len([a for a in all_data.get('assignments', []) if a.get('status') == 'Missing'])}")
+    print(
+        f"Missing: {len([a for a in all_data.get('assignments', []) if a.get('status') == 'Missing'])}"
+    )
     att = all_data.get("attendance", {})
     print(f"Attendance: {att.get('rate', 0)}%")
 
@@ -535,4 +542,15 @@ def run_full_scrape(headless: bool = False, student_name: str | None = None):
 
 
 if __name__ == "__main__":
-    run_full_scrape()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Scrape PowerSchool parent portal")
+    parser.add_argument(
+        "--headless", action="store_true", help="Run browser in headless mode"
+    )
+    parser.add_argument(
+        "--student", "-s", type=str, help="Scrape specific student only"
+    )
+    args = parser.parse_args()
+
+    run_full_scrape(headless=args.headless, student_name=args.student)
