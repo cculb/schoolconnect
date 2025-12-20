@@ -1,6 +1,11 @@
 # PowerSchool Portal - GitLab CI Pipeline
 # Supports both automated CI and agent-triggered development cycles
 
+# Include GitLab security scanning templates
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
 stages:
   - lint
   - test-unit
@@ -13,6 +18,7 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
   PLAYWRIGHT_BROWSERS_PATH: "$CI_PROJECT_DIR/.playwright"
   PYTHON_VERSION: "3.12"
+  SECRET_DETECTION_ENABLED: 'true'
   # PowerSchool credentials (set in GitLab CI/CD Settings > Variables)
   # POWERSCHOOL_URL: https://yourdistrict.powerschool.com
   # POWERSCHOOL_USERNAME: (masked)
