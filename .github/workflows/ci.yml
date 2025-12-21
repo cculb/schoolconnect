@@ -481,25 +481,25 @@ jobs:
 
             const body = `## ${statusEmoji} Test Results
 
-| Metric | Value |
-|--------|-------|
-| Total Tests | ${totals.tests || 0} |
-| Passed | ${totals.passed || 0} |
-| Failed | ${totals.failed || 0} |
-| Skipped | ${totals.skipped || 0} |
+            | Metric | Value |
+            |--------|-------|
+            | Total Tests | ${totals.tests || 0} |
+            | Passed | ${totals.passed || 0} |
+            | Failed | ${totals.failed || 0} |
+            | Skipped | ${totals.skipped || 0} |
 
-${hasFailed ? '⚠️ Some tests failed. Check artifacts for details.' + failureDetails : (hasTests ? '✅ All tests passed!' : '⚠️ No test results found. Check if tests ran correctly.')}
+            ${hasFailed ? '⚠️ Some tests failed. Check artifacts for details.' + failureDetails : (hasTests ? '✅ All tests passed!' : '⚠️ No test results found. Check if tests ran correctly.')}
 
-<details>
-<summary>Test Suite Details</summary>
+            <details>
+            <summary>Test Suite Details</summary>
 
-\`\`\`json
-${JSON.stringify(testResults, null, 2)}
-\`\`\`
-</details>
+            \`\`\`json
+            ${JSON.stringify(testResults, null, 2)}
+            \`\`\`
+            </details>
 
-> **Note:** PR checks run unit and integration tests only. E2E tests run on merge to main.
-`;
+            > **Note:** PR checks run unit and integration tests only. E2E tests run on merge to main.
+            `;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
