@@ -39,6 +39,7 @@ dev = [
     "mypy>=1.8.0",
     "requests>=2.31.0",
     "streamlit>=1.28.0",
+    "anthropic>=0.20.0",
 ]
 
 [project.scripts]

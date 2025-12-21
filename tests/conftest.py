@@ -258,10 +258,8 @@ def streamlit_server(project_root: Path) -> Generator[str, None, None]:
 
     Yields the base URL of the running server.
     """
-    app_path = project_root / "streamlit-chat" / "app.py"
-
-    # Seed database before starting server
-    db_path = seed_test_database(project_root)
+    # Seed database before starting server (side effect only, we use relative path)
+    seed_test_database(project_root)
 
     # Set environment for the subprocess
     # Use relative path since we'll run from streamlit-chat directory
