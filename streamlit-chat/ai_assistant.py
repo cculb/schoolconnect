@@ -1,6 +1,7 @@
 """Claude AI integration for SchoolPulse chat assistant."""
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,42 @@ from data_queries import (
     get_student_summary,
     get_upcoming_assignments,
 )
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+
+# Custom error classes
+class APIError(Exception):
+    """Base class for API errors."""
+
+    pass
+
+
+class RateLimitAPIError(APIError):
+    """Rate limit exceeded error."""
+
+    pass
+
+
+class OverloadedAPIError(APIError):
+    """API overloaded error."""
+
+    pass
+
+
+class AuthenticationAPIError(APIError):
+    """Authentication error."""
+
+    pass
+
+
+class NetworkAPIError(APIError):
+    """Network-related error."""
+
+    pass
+
 
 SYSTEM_PROMPT = """You are SchoolPulse, a helpful assistant for parents to understand their child's academic progress.
 
@@ -48,6 +85,43 @@ AVAILABLE_MODELS = {
 }
 
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
+
+# Maximum number of tool use iterations
+MAX_TOOL_ITERATIONS = 15
+
+
+def _get_status_code(error: Exception) -> int | None:
+    """Extract status code from an error."""
+    if hasattr(error, "status_code"):
+        return error.status_code
+    if hasattr(error, "response") and hasattr(error.response, "status_code"):
+        return error.response.status_code
+    return None
+
+
+def categorize_error(error: Exception) -> type[APIError]:
+    """Categorize an error based on its status code and type.
+
+    Returns the appropriate error class type (not an instance).
+    """
+    status_code = _get_status_code(error)
+
+    if status_code == 429:
+        return RateLimitAPIError
+    elif status_code == 529:
+        return OverloadedAPIError
+    elif status_code in (401, 403):
+        return AuthenticationAPIError
+    elif isinstance(error, (ConnectionError, TimeoutError)):
+        return NetworkAPIError
+    else:
+        return APIError
+
+
+def is_retryable_error(error: Exception) -> bool:
+    """Determine if an error is retryable using categorize_error as single source of truth."""
+    error_type = categorize_error(error)
+    return error_type in (RateLimitAPIError, OverloadedAPIError, NetworkAPIError)
 
 
 TOOLS = [
@@ -153,6 +227,33 @@ def execute_tool(tool_name: str, tool_input: dict, student_name: str) -> Any:
         return {"error": f"Unknown tool: {tool_name}"}
 
 
+@retry(
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    stop=stop_after_attempt(4),
+    retry=is_retryable_error,
+    reraise=True,
+)
+def _make_api_call(client: Anthropic, **kwargs) -> Any:
+    """Make an API call with retry logic.
+
+    Args:
+        client: The Anthropic client
+        **kwargs: Arguments to pass to client.messages.create()
+
+    Returns:
+        The API response
+
+    Raises:
+        APIError: If the API call fails after retries
+    """
+    try:
+        return client.messages.create(**kwargs)
+    except Exception as e:
+        logger.error(f"API call failed: {type(e).__name__}")
+        error_class = categorize_error(e)
+        raise error_class(str(e)) from e
+
+
 def get_ai_response(
     user_message: str,
     student_context: dict,
@@ -194,12 +295,30 @@ Current student context:
 
     try:
         # Initial API call with tools
-        response = client.messages.create(
-            model=model, max_tokens=1024, system=system_with_context, tools=TOOLS, messages=messages
+        response = _make_api_call(
+            client,
+            model=model,
+            max_tokens=1024,
+            system=system_with_context,
+            tools=TOOLS,
+            messages=messages,
         )
 
-        # Handle tool use loop
+        # Handle tool use loop with iteration limit
+        iteration_count = 0
         while response.stop_reason == "tool_use":
+            iteration_count += 1
+
+            # Check iteration limit (use > to allow exactly MAX_TOOL_ITERATIONS)
+            if iteration_count > MAX_TOOL_ITERATIONS:
+                logger.warning(
+                    f"Tool use iteration limit exceeded: {iteration_count} > {MAX_TOOL_ITERATIONS}"
+                )
+                return (
+                    "I apologize, but I've reached the maximum number of steps while processing your request. "
+                    "Please try rephrasing your question or breaking it into smaller parts."
+                )
+
             # Find tool use blocks
             tool_uses = [block for block in response.content if block.type == "tool_use"]
 
@@ -220,7 +339,8 @@ Current student context:
             messages.append({"role": "user", "content": tool_results})
 
             # Continue the conversation
-            response = client.messages.create(
+            response = _make_api_call(
+                client,
                 model=model,
                 max_tokens=1024,
                 system=system_with_context,
@@ -232,8 +352,28 @@ Current student context:
         text_blocks = [block.text for block in response.content if hasattr(block, "text")]
         return "\n".join(text_blocks) if text_blocks else "I couldn't generate a response."
 
+    except AuthenticationAPIError as e:
+        logger.error(f"Authentication error: {type(e).__name__}")
+        return (
+            "Unable to authenticate with the AI service. Please check your API key configuration."
+        )
+    except RateLimitAPIError as e:
+        logger.error(f"Rate limit exceeded: {type(e).__name__}")
+        return (
+            "Service temporarily unavailable due to high demand. Please try again in a few moments."
+        )
+    except OverloadedAPIError as e:
+        logger.error(f"API overloaded: {type(e).__name__}")
+        return "The AI service is currently experiencing high load. Please try again shortly."
+    except NetworkAPIError as e:
+        logger.error(f"Network error: {type(e).__name__}")
+        return "Unable to connect to the AI service. Please check your internet connection and try again."
+    except APIError as e:
+        logger.error(f"API error: {type(e).__name__}")
+        return "Unable to process your request at this time. Please try again later."
     except Exception as e:
-        return f"Error communicating with AI: {str(e)}"
+        logger.error(f"Unexpected error: {type(e).__name__}")
+        return "An unexpected error occurred. Please try again later."
 
 
 def get_quick_response(query_type: str, student_name: str = "Delilah") -> dict:
