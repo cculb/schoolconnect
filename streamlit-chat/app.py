@@ -734,110 +734,96 @@ def render_main_app() -> None:
 
     # Show student summary and conversation starters when chat is empty
     if not st.session_state.messages:
+        # Get summary with error handling - keep try/except narrow to avoid
+        # catching st.rerun() exceptions from button handlers
+        summary = None
         try:
             db_path = get_db_path()
             # MED-1: Use cached student summary
             summary = get_cached_student_summary(db_path, st.session_state.student_name)
-
-            if "error" not in summary:
-                attendance_rate = summary.get("attendance_rate", 0)
-                missing = summary.get("missing_assignments", 0)
-
-                # Status emojis
-                attendance_emoji = (
-                    "✅" if attendance_rate >= 95 else "⚠️" if attendance_rate >= 90 else "🔴"
-                )
-                missing_emoji = "✅" if missing == 0 else "⚠️" if missing < 3 else "🔴"
-
-                st.markdown(
-                    f"""
-                <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-                            padding: 2rem;
-                            border-radius: 15px;
-                            border-left: 5px solid #667eea;
-                            box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                    <h3 style="color: #667eea; margin-top: 0;">👋 Welcome to SchoolPulse!</h3>
-                    <p style="font-size: 1.1rem; margin-bottom: 1.5rem;">
-                        Here's a quick overview for <strong>{summary.get("name", "your student")}</strong>:
-                    </p>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                        <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">📚 Courses</div>
-                            <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{summary.get("course_count", 0)}</div>
-                        </div>
-                        <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">📝 Missing Work</div>
-                            <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{missing_emoji} {missing}</div>
-                        </div>
-                        <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">🏫 Attendance</div>
-                            <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{attendance_emoji} {attendance_rate}%</div>
-                        </div>
-                    </div>
-                    <p style="margin-top: 1.5rem; margin-bottom: 0; font-size: 1rem; color: #555;">
-                        💡 <strong>Tip:</strong> Use the quick action buttons above or try the conversation starters below!
-                    </p>
-                </div>
-                """,
-                    unsafe_allow_html=True,
-                )
-
-                # Show context-based conversation starters
-                st.markdown("**💭 Try asking:**")
-                starters = get_contextual_starters(summary)
-
-                # Render starters in rows of 2
-                for i in range(0, len(starters), 2):
-                    cols = st.columns(2)
-                    for j, col in enumerate(cols):
-                        if i + j < len(starters):
-                            starter = starters[i + j]
-                            with col:
-                                if st.button(
-                                    f"{starter['icon']} {starter['text']}",
-                                    key=f"starter_{i + j}",
-                                    use_container_width=True,
-                                ):
-                                    # Add user message to buffer (HIGH-3)
-                                    st.session_state.messages = add_message_to_buffer(
-                                        st.session_state.messages, "user", starter["text"]
-                                    )
-                                    # Get AI response
-                                    if api_key:
-                                        response = get_ai_response(
-                                            starter["text"],
-                                            {"student_name": st.session_state.student_name},
-                                            [],  # No history for first message
-                                            api_key,
-                                            st.session_state.model,
-                                        )
-                                    else:
-                                        response = "Please configure your Anthropic API key in secrets or environment."
-                                    # Add response to buffer (HIGH-3)
-                                    st.session_state.messages = add_message_to_buffer(
-                                        st.session_state.messages, "assistant", response
-                                    )
-                                    st.rerun()
-            else:
-                st.markdown(
-                    """
-                <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-                            padding: 2rem;
-                            border-radius: 15px;
-                            border-left: 5px solid #667eea;
-                            box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                    <h3 style="color: #667eea; margin-top: 0;">👋 Welcome to SchoolPulse!</h3>
-                    <p style="font-size: 1.1rem;">
-                        Your intelligent assistant for tracking your child's academic progress.
-                    </p>
-                    <p style="margin-bottom: 0;">
-                        💡 Use the quick action buttons above or ask me about your child's progress!
-                    </p>
-                </div>
-                """,
-                    unsafe_allow_html=True,
-                )
         except Exception:
+            pass  # summary remains None, will show fallback
+
+        if summary and "error" not in summary:
+            attendance_rate = summary.get("attendance_rate", 0)
+            missing = summary.get("missing_assignments", 0)
+
+            # Status emojis
+            attendance_emoji = (
+                "✅" if attendance_rate >= 95 else "⚠️" if attendance_rate >= 90 else "🔴"
+            )
+            missing_emoji = "✅" if missing == 0 else "⚠️" if missing < 3 else "🔴"
+
+            st.markdown(
+                f"""
+            <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                        padding: 2rem;
+                        border-radius: 15px;
+                        border-left: 5px solid #667eea;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                <h3 style="color: #667eea; margin-top: 0;">👋 Welcome to SchoolPulse!</h3>
+                <p style="font-size: 1.1rem; margin-bottom: 1.5rem;">
+                    Here's a quick overview for <strong>{summary.get("name", "your student")}</strong>:
+                </p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">📚 Courses</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{summary.get("course_count", 0)}</div>
+                    </div>
+                    <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">📝 Missing Work</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{missing_emoji} {missing}</div>
+                    </div>
+                    <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">🏫 Attendance</div>
+                        <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{attendance_emoji} {attendance_rate}%</div>
+                    </div>
+                </div>
+                <p style="margin-top: 1.5rem; margin-bottom: 0; font-size: 1rem; color: #555;">
+                    💡 <strong>Tip:</strong> Use the quick action buttons above or try the conversation starters below!
+                </p>
+            </div>
+            """,
+                unsafe_allow_html=True,
+            )
+
+            # Show context-based conversation starters
+            st.markdown("**💭 Try asking:**")
+            starters = get_contextual_starters(summary)
+
+            # Render starters in rows of 2
+            for i in range(0, len(starters), 2):
+                cols = st.columns(2)
+                for j, col in enumerate(cols):
+                    if i + j < len(starters):
+                        starter = starters[i + j]
+                        with col:
+                            if st.button(
+                                f"{starter['icon']} {starter['text']}",
+                                key=f"starter_{i + j}",
+                                use_container_width=True,
+                            ):
+                                # Add user message to buffer (HIGH-3)
+                                st.session_state.messages = add_message_to_buffer(
+                                    st.session_state.messages, "user", starter["text"]
+                                )
+                                # Get AI response
+                                if api_key:
+                                    response = get_ai_response(
+                                        starter["text"],
+                                        {"student_name": st.session_state.student_name},
+                                        [],  # No history for first message
+                                        api_key,
+                                        st.session_state.model,
+                                    )
+                                else:
+                                    response = "Please configure your Anthropic API key in secrets or environment."
+                                # Add response to buffer (HIGH-3)
+                                st.session_state.messages = add_message_to_buffer(
+                                    st.session_state.messages, "assistant", response
+                                )
+                                st.rerun()
+        else:
             st.markdown(
                 """
             <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);

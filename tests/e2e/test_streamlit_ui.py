@@ -300,6 +300,17 @@ class TestConversationStarters:
         # 4 quick actions + at least 4 starters = 8 minimum
         assert count >= 8, f"Expected at least 8 buttons, got {count}"
 
+    def test_conversation_starter_creates_messages(self, logged_in_page: Page):
+        """Verify clicking a conversation starter creates chat messages."""
+        # Click the "What should we prioritize" starter
+        logged_in_page.locator('button:has-text("prioritize this week")').first.click()
+        logged_in_page.wait_for_load_state("networkidle")
+        logged_in_page.wait_for_timeout(500)
+
+        # Should have user and assistant messages
+        messages = logged_in_page.locator('[data-testid="stChatMessage"]')
+        expect(messages).to_have_count(2, timeout=10000)
+
 
 class TestChatInterface:
     """Tests for the chat input and messages."""
