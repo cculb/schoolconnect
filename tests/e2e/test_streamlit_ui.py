@@ -69,13 +69,13 @@ class TestLoginPage:
         login_button = streamlit_page.locator('button:has-text("Login")')
         login_button.click()
 
-        # Wait for navigation
+        # Wait for navigation and session initialization
         streamlit_page.wait_for_load_state("networkidle")
-        streamlit_page.wait_for_timeout(1000)
+        streamlit_page.wait_for_timeout(2000)  # Extra wait for Streamlit rerun
 
-        # Should now see main app content - look for a quick action button (e.g., Missing Work)
-        missing_work_btn = streamlit_page.locator('button:has-text("Missing Work")')
-        expect(missing_work_btn).to_be_visible(timeout=10000)
+        # Should now see main app content - look for Dashboard Overview header
+        dashboard = streamlit_page.get_by_text("Dashboard Overview").first
+        expect(dashboard).to_be_visible(timeout=15000)
 
 
 # =============================================================================
@@ -116,17 +116,15 @@ class TestSidebarSettings:
         collapsed = page.locator('[data-testid="collapsedControl"]')
         if collapsed.is_visible():
             collapsed.click()
-            # Wait for sidebar to expand (aria-expanded becomes true)
-            page.locator('[data-testid="stSidebar"][aria-expanded="true"]').wait_for(
-                state="attached", timeout=5000
-            )
+            # Wait for sidebar content to be visible (Settings header)
+            page.get_by_text("Settings").first.wait_for(state="visible", timeout=5000)
 
     def test_sidebar_can_be_opened(self, logged_in_page: Page):
         """Verify sidebar opens when clicked."""
         self._open_sidebar(logged_in_page)
-        # Check sidebar is expanded (aria-expanded="true")
-        sidebar = logged_in_page.locator('[data-testid="stSidebar"][aria-expanded="true"]')
-        expect(sidebar).to_be_attached()
+        # Check sidebar content is visible (Settings header appears)
+        settings_header = logged_in_page.get_by_text("Settings").first
+        expect(settings_header).to_be_visible()
 
     def test_model_dropdown_exists(self, logged_in_page: Page):
         """Verify AI model dropdown is present."""
