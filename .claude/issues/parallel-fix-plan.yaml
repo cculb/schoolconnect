@@ -1,0 +1,496 @@
+# SchoolConnect Code Review Fix Plan
+# Generated: 2025-12-20
+# Total Issues: 14 (5 CRITICAL, 5 HIGH, 4 MEDIUM)
+
+metadata:
+  project: schoolconnect
+  tracking_file: .claude/issues/code-review-issues.md
+  validation_command: "gh workflow run 'CI Pipeline' --repo cculb/schoolconnect -f agent_task=quick-check"
+  full_validation: "gh workflow run 'CI Pipeline' --repo cculb/schoolconnect -f agent_task=full-validation"
+
+streams:
+  # ============================================================================
+  # STREAM 1: Data Layer Refactoring
+  # Priority: CRITICAL - Foundation for other streams
+  # ============================================================================
+  - id: stream-1-data-layer
+    name: "Data Layer Refactoring"
+    priority: 1
+    depends_on: []
+    issues:
+      - CRIT-3  # Refactor to use existing Repository pattern
+      - CRIT-4  # Fix SQL injection risk
+      - CRIT-5  # Implement connection pooling
+
+    file_ownership:
+      primary:
+        - streamlit-chat/data_queries.py
+      creates:
+        - streamlit-chat/repository_adapter.py
+      reads_only:
+        - src/database/repository.py
+        - src/database/connection.py
+
+    tasks:
+      - id: 1.1
+        name: "Analyze existing Repository pattern"
+        type: research
+        files:
+          - src/database/repository.py
+          - src/database/connection.py
+        output: "Understand existing patterns for adapter design"
+
+      - id: 1.2
+        name: "Create repository adapter"
+        type: implementation
+        files:
+          - streamlit-chat/repository_adapter.py
+        description: |
+          Create adapter that:
+          - Wraps existing Repository methods
+          - Maintains Streamlit-specific return formats
+          - Uses existing connection pooling
+
+      - id: 1.3
+        name: "Add input validation/sanitization"
+        type: implementation
+        files:
+          - streamlit-chat/data_queries.py
+        description: |
+          Add validation for student names:
+          - Sanitize LIKE pattern special characters (%, _, etc.)
+          - Limit input length
+          - Validate against whitelist of allowed characters
+
+      - id: 1.4
+        name: "Migrate data_queries.py to use adapter"
+        type: implementation
+        files:
+          - streamlit-chat/data_queries.py
+        description: |
+          Replace direct sqlite3 calls with repository adapter:
+          - Use context managers for connections
+          - Delegate to existing Repository where possible
+          - Keep query result formatting for UI compatibility
+
+      - id: 1.5
+        name: "Add unit tests for data layer"
+        type: testing
+        files:
+          - streamlit-chat/test_data_queries.py
+        description: |
+          Test:
+          - Input sanitization edge cases
+          - Connection cleanup
+          - Error handling
+
+    validation:
+      local:
+        - "ruff check streamlit-chat/"
+        - "pytest streamlit-chat/test_data_queries.py -v"
+      ci_task: "quick-check"
+
+    acceptance_criteria:
+      - "No direct sqlite3.connect() calls except in adapter"
+      - "All student name inputs validated before use in queries"
+      - "Context managers used for all connections"
+      - "All tests passing"
+
+  # ============================================================================
+  # STREAM 2: Security & Authentication
+  # Priority: CRITICAL - FERPA compliance
+  # ============================================================================
+  - id: stream-2-security
+    name: "Security & Authentication"
+    priority: 1
+    depends_on: []
+    issues:
+      - CRIT-1  # Add authentication/authorization
+      - CRIT-2  # Remove API key from session state
+      - HIGH-1  # Add session timeout and logout
+
+    file_ownership:
+      primary:
+        - streamlit-chat/app.py
+      creates:
+        - streamlit-chat/auth.py
+        - streamlit-chat/session_manager.py
+      reads_only:
+        - streamlit-chat/.streamlit/secrets.toml.example
+
+    tasks:
+      - id: 2.1
+        name: "Create auth module"
+        type: implementation
+        files:
+          - streamlit-chat/auth.py
+        description: |
+          Implement parent authentication:
+          - Simple password-based login (Phase 1)
+          - Map parents to students
+          - Validate student-to-parent relationships
+
+      - id: 2.2
+        name: "Create session manager"
+        type: implementation
+        files:
+          - streamlit-chat/session_manager.py
+        description: |
+          Implement session management:
+          - 30-minute inactivity timeout
+          - Logout functionality
+          - Session token validation
+
+      - id: 2.3
+        name: "Remove API key from session state"
+        type: implementation
+        files:
+          - streamlit-chat/app.py
+        description: |
+          Security fix:
+          - Remove API key from st.session_state
+          - Use only st.secrets or os.environ
+          - Remove sidebar API key input (demo mode only)
+
+      - id: 2.4
+        name: "Integrate auth into app.py"
+        type: implementation
+        files:
+          - streamlit-chat/app.py
+        description: |
+          Add login flow:
+          - Show login page if not authenticated
+          - Add logout button to sidebar
+          - Display session timeout warning
+
+      - id: 2.5
+        name: "Add security tests"
+        type: testing
+        files:
+          - streamlit-chat/test_auth.py
+        description: |
+          Test:
+          - Authentication flow
+          - Session timeout
+          - Unauthorized access prevention
+
+    validation:
+      local:
+        - "ruff check streamlit-chat/"
+        - "pytest streamlit-chat/test_auth.py -v"
+      ci_task: "ui-only"
+
+    acceptance_criteria:
+      - "No API keys stored in session_state"
+      - "Login required to access student data"
+      - "Session expires after 30 minutes inactivity"
+      - "Logout button visible and functional"
+
+  # ============================================================================
+  # STREAM 3: AI Reliability
+  # Priority: HIGH
+  # ============================================================================
+  - id: stream-3-ai-reliability
+    name: "AI Reliability & Error Handling"
+    priority: 2
+    depends_on: []
+    issues:
+      - HIGH-2  # Add exponential backoff retry logic
+
+    file_ownership:
+      primary:
+        - streamlit-chat/ai_assistant.py
+      creates: []
+      reads_only: []
+
+    tasks:
+      - id: 3.1
+        name: "Add retry decorator with backoff"
+        type: implementation
+        files:
+          - streamlit-chat/ai_assistant.py
+        description: |
+          Add retry logic:
+          - Use tenacity or custom decorator
+          - Exponential backoff (1s, 2s, 4s, 8s)
+          - Max 3 retries
+          - Retry on rate limits (429) and server errors (5xx)
+          - Don't retry on client errors (4xx except 429)
+
+      - id: 3.2
+        name: "Add error categorization"
+        type: implementation
+        files:
+          - streamlit-chat/ai_assistant.py
+        description: |
+          Categorize errors for user display:
+          - Rate limit: "High demand, retrying..."
+          - Server error: "Service temporarily unavailable"
+          - Client error: Show specific message
+
+      - id: 3.3
+        name: "Add retry tests"
+        type: testing
+        files:
+          - streamlit-chat/test_ai_assistant.py
+        description: |
+          Test:
+          - Retry on 429
+          - Retry on 500/503
+          - No retry on 400/401
+          - Max retry limit
+
+    validation:
+      local:
+        - "ruff check streamlit-chat/ai_assistant.py"
+        - "pytest streamlit-chat/test_ai_assistant.py -v"
+      ci_task: "quick-check"
+
+    acceptance_criteria:
+      - "API calls retry on rate limits with backoff"
+      - "User sees friendly error messages"
+      - "Max 3 retries before giving up"
+
+  # ============================================================================
+  # STREAM 4: UI/UX Improvements
+  # Priority: HIGH/MEDIUM
+  # ============================================================================
+  - id: stream-4-ui-improvements
+    name: "UI/UX Improvements"
+    priority: 2
+    depends_on:
+      - stream-1-data-layer  # Needs sanitized student selection
+      - stream-2-security    # Needs auth context
+    issues:
+      - HIGH-3  # Message history circular buffer
+      - HIGH-4  # Replace hardcoded "Delilah"
+      - MED-1   # Add caching with @st.cache_data
+      - MED-2   # Move inline CSS to external file
+      - MED-3   # Add missing docstrings
+
+    file_ownership:
+      primary:
+        - streamlit-chat/app.py
+      creates:
+        - streamlit-chat/.streamlit/custom.css
+      reads_only:
+        - streamlit-chat/data_queries.py
+
+    tasks:
+      - id: 4.1
+        name: "Extract CSS to external file"
+        type: implementation
+        files:
+          - streamlit-chat/app.py
+          - streamlit-chat/.streamlit/custom.css
+        description: |
+          Move inline CSS:
+          - Extract ~200 lines of CSS to custom.css
+          - Load via st.markdown with file read
+          - Keep critical CSS inline if needed for load order
+
+      - id: 4.2
+        name: "Implement message buffer"
+        type: implementation
+        files:
+          - streamlit-chat/app.py
+        description: |
+          Add circular buffer:
+          - Store max 50 messages in session_state
+          - Send only last 10 to AI API
+          - Add "Load more" for older messages
+
+      - id: 4.3
+        name: "Add dynamic student selection"
+        type: implementation
+        files:
+          - streamlit-chat/app.py
+        description: |
+          Replace hardcoded "Delilah":
+          - Query available students from database
+          - Add student selector dropdown
+          - Integrate with auth (parent sees their students)
+
+      - id: 4.4
+        name: "Add caching decorators"
+        type: implementation
+        files:
+          - streamlit-chat/app.py
+        description: |
+          Add @st.cache_data:
+          - Cache student summary (TTL 60s)
+          - Cache student list (TTL 300s)
+          - Clear cache on student selection change
+
+      - id: 4.5
+        name: "Add docstrings"
+        type: implementation
+        files:
+          - streamlit-chat/app.py
+        description: |
+          Add Google-style docstrings to:
+          - All public functions
+          - Main entry point
+          - Complex helper functions
+
+    validation:
+      local:
+        - "ruff check streamlit-chat/app.py"
+        - "pytest tests/e2e/test_streamlit_ui.py -v"
+      ci_task: "ui-only"
+
+    acceptance_criteria:
+      - "CSS in external file"
+      - "Message history limited to 50, AI sees 10"
+      - "Student selection from database, not hardcoded"
+      - "@st.cache_data on expensive queries"
+      - "All functions have docstrings"
+
+  # ============================================================================
+  # STREAM 5: Testing & Documentation
+  # Priority: HIGH/MEDIUM
+  # ============================================================================
+  - id: stream-5-testing-docs
+    name: "Testing & Documentation"
+    priority: 3
+    depends_on:
+      - stream-1-data-layer
+      - stream-3-ai-reliability
+    issues:
+      - HIGH-5  # Add proper test fixtures and mocking
+      - MED-4   # Add Streamlit setup documentation
+
+    file_ownership:
+      primary:
+        - streamlit-chat/test_app.py
+        - README.md
+      creates:
+        - streamlit-chat/conftest.py
+        - tests/fixtures/test_student_data.json
+      reads_only:
+        - tests/conftest.py
+
+    tasks:
+      - id: 5.1
+        name: "Create test fixtures"
+        type: implementation
+        files:
+          - streamlit-chat/conftest.py
+          - tests/fixtures/test_student_data.json
+        description: |
+          Add pytest fixtures:
+          - Test database with known data
+          - Mock AI responses
+          - Session state fixtures
+
+      - id: 5.2
+        name: "Refactor tests to use fixtures"
+        type: implementation
+        files:
+          - streamlit-chat/test_app.py
+        description: |
+          Update tests:
+          - Replace hardcoded "Delilah" with fixture data
+          - Use mock for AI API calls
+          - Add parameterized tests for edge cases
+
+      - id: 5.3
+        name: "Add missing test cases"
+        type: implementation
+        files:
+          - streamlit-chat/test_app.py
+        description: |
+          Add tests for:
+          - Error handling paths
+          - Edge cases (empty data, missing student)
+          - Session state management
+
+      - id: 5.4
+        name: "Update README with Streamlit docs"
+        type: documentation
+        files:
+          - README.md
+        description: |
+          Add section for Streamlit:
+          - Installation requirements
+          - Environment setup
+          - Running the app locally
+          - Configuration options
+
+    validation:
+      local:
+        - "pytest streamlit-chat/ -v --cov"
+        - "markdownlint README.md"
+      ci_task: "full-validation"
+
+    acceptance_criteria:
+      - "No hardcoded test data"
+      - "AI API calls mocked in tests"
+      - "Test coverage > 60%"
+      - "README has Streamlit setup section"
+
+# ============================================================================
+# EXECUTION PLAN
+# ============================================================================
+execution:
+  phase_1:
+    name: "Foundation (Parallel)"
+    streams:
+      - stream-1-data-layer
+      - stream-2-security
+      - stream-3-ai-reliability
+    description: "These streams can run in parallel - no file conflicts"
+    estimated_tasks: 13
+
+  phase_2:
+    name: "UI Improvements"
+    streams:
+      - stream-4-ui-improvements
+    depends_on: [phase_1]
+    description: "Depends on data layer and security being complete"
+    estimated_tasks: 5
+
+  phase_3:
+    name: "Testing & Documentation"
+    streams:
+      - stream-5-testing-docs
+    depends_on: [phase_1]
+    description: "Can start after phase 1, parallel with phase 2"
+    estimated_tasks: 4
+
+# ============================================================================
+# AGENT INSTRUCTIONS
+# ============================================================================
+agent_instructions:
+  general:
+    - "Read the tracking file before starting: .claude/issues/code-review-issues.md"
+    - "Update issue status in tracking file as you complete tasks"
+    - "Run local validation before pushing changes"
+    - "Use conventional commits: fix(streamlit): description"
+    - "Never commit API keys or secrets"
+
+  per_stream:
+    stream-1-data-layer: |
+      Focus on data layer consolidation. Create an adapter that wraps the existing
+      Repository pattern from src/database/. Ensure all user inputs are sanitized
+      before use in SQL queries. Use context managers for connection management.
+
+    stream-2-security: |
+      This is FERPA-critical. Implement authentication before data access.
+      Remove ALL instances of API keys from session state. Create a proper
+      logout flow with session timeout. Test thoroughly.
+
+    stream-3-ai-reliability: |
+      Add resilience to AI API calls. Use exponential backoff for retries.
+      Categorize errors for user-friendly messages. This is isolated from
+      other streams - no dependencies.
+
+    stream-4-ui-improvements: |
+      Wait for data layer and security streams to complete. Then implement
+      UI improvements using the new patterns. Extract CSS, limit message
+      history, and replace hardcoded student name with dynamic selection.
+
+    stream-5-testing-docs: |
+      Create proper test fixtures and mocking infrastructure. Refactor
+      existing tests to be portable and not depend on real data. Update
+      README with clear setup instructions for new developers.

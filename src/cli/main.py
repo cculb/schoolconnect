@@ -64,8 +64,17 @@ def init_db(force: bool):
 @cli.command()
 @click.option("--headless", is_flag=True, help="Run browser in headless mode")
 @click.option("--student", "-s", help="Sync specific student only")
-def sync(headless: bool, student: str):
-    """Sync data from PowerSchool (runs scraper)."""
+@click.option(
+    "--all-students",
+    is_flag=True,
+    help="Sync all students on the account (iterates through student switcher)",
+)
+def sync(headless: bool, student: str, all_students: bool):
+    """Sync data from PowerSchool (runs scraper).
+
+    By default, syncs only the currently selected student. Use --all-students
+    to iterate through all students on the parent account.
+    """
     try:
         # Import scraper (will fail if not installed)
         from scripts.load_data import load_scraped_data
@@ -74,8 +83,15 @@ def sync(headless: bool, student: str):
         console.print("[blue]Starting PowerSchool sync...[/blue]")
         console.print("This will open a browser and log into PowerSchool.")
 
+        if all_students:
+            console.print("[cyan]Mode: Syncing ALL students on account[/cyan]")
+        elif student:
+            console.print(f"[cyan]Mode: Syncing specific student: {student}[/cyan]")
+
         # Run scraper
-        run_full_scrape(headless=headless, student_name=student)
+        run_full_scrape(
+            headless=headless, student_name=student, all_students=all_students
+        )
 
         # Load data
         console.print("\n[blue]Loading data into database...[/blue]")
