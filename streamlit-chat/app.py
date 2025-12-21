@@ -12,6 +12,49 @@ from ai_assistant import (
 )
 from data_queries import get_student_summary
 
+
+def get_contextual_starters(summary: dict) -> list[dict]:
+    """Generate conversation starters based on student data."""
+    starters = []
+
+    # Always include general starters
+    starters.append({"icon": "🎯", "text": "What should we prioritize this week?"})
+    starters.append({"icon": "📊", "text": "How is my child doing overall?"})
+
+    # Context-based starters
+    missing = summary.get("missing_assignments", 0)
+    if missing > 0:
+        starters.append({
+            "icon": "📋",
+            "text": f"How can we address the {missing} missing assignment{'s' if missing > 1 else ''}?"
+        })
+
+    attendance = summary.get("attendance_rate", 100)
+    if attendance < 90:
+        starters.append({
+            "icon": "🏫",
+            "text": f"Attendance is at {attendance}%. Should I be concerned?"
+        })
+    elif attendance >= 95:
+        starters.append({
+            "icon": "🏫",
+            "text": "Great attendance! How can we maintain it?"
+        })
+
+    days_absent = summary.get("days_absent", 0)
+    if days_absent > 3:
+        starters.append({
+            "icon": "📅",
+            "text": f"My child has been absent {days_absent} days. What should I know?"
+        })
+
+    # Add helpful general starters
+    starters.append({"icon": "✉️", "text": "Help me write an email to a teacher"})
+    starters.append({"icon": "💡", "text": "Suggest study strategies for middle school"})
+
+    return starters[:6]  # Limit to 6 starters
+
+
 # Page configuration - mobile friendly
 st.set_page_config(
     page_title="SchoolPulse",
@@ -552,7 +595,7 @@ if prompt := st.chat_input("💭 Ask about your child's progress..."):
     # Add assistant response to history
     st.session_state.messages.append({"role": "assistant", "content": response})
 
-# Show welcome message if no chat history
+# Show student summary and conversation starters when chat is empty
 if not st.session_state.messages:
     try:
         db_path = get_db_path()
@@ -591,7 +634,61 @@ if not st.session_state.messages:
                     </div>
                 </div>
                 <p style="margin-top: 1.5rem; margin-bottom: 0; font-size: 1rem; color: #555;">
-                    💡 <strong>Tip:</strong> Use the quick action buttons above or ask me anything about your child's progress!
+                    💡 <strong>Tip:</strong> Use the quick action buttons above or try the conversation starters below!
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Show context-based conversation starters
+            st.markdown("**💭 Try asking:**")
+            starters = get_contextual_starters(summary)
+
+            # Render starters in rows of 2
+            for i in range(0, len(starters), 2):
+                cols = st.columns(2)
+                for j, col in enumerate(cols):
+                    if i + j < len(starters):
+                        starter = starters[i + j]
+                        with col:
+                            if st.button(
+                                f"{starter['icon']} {starter['text']}",
+                                key=f"starter_{i+j}",
+                                use_container_width=True
+                            ):
+                                # Add user message
+                                st.session_state.messages.append({
+                                    "role": "user",
+                                    "content": starter['text']
+                                })
+                                # Get AI response
+                                if st.session_state.api_key:
+                                    response = get_ai_response(
+                                        starter['text'],
+                                        {"student_name": st.session_state.student_name},
+                                        [],
+                                        st.session_state.api_key,
+                                        st.session_state.model
+                                    )
+                                else:
+                                    response = "Please enter your Anthropic API key in the sidebar settings."
+                                st.session_state.messages.append({
+                                    "role": "assistant",
+                                    "content": response
+                                })
+                                st.rerun()
+        else:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                        padding: 2rem;
+                        border-radius: 15px;
+                        border-left: 5px solid #667eea;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                <h3 style="color: #667eea; margin-top: 0;">👋 Welcome to SchoolPulse!</h3>
+                <p style="font-size: 1.1rem;">
+                    Your intelligent assistant for tracking your child's academic progress.
+                </p>
+                <p style="margin-bottom: 0;">
+                    💡 Use the quick action buttons above or ask me about your child's progress!
                 </p>
             </div>
             """, unsafe_allow_html=True)

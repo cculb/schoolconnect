@@ -22,14 +22,14 @@ load_dotenv()
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-import click
-from rich.console import Console
-from rich.markdown import Markdown
-from rich.panel import Panel
-from rich.table import Table
+import click  # noqa: E402
+from rich.console import Console  # noqa: E402
+from rich.markdown import Markdown  # noqa: E402
+from rich.panel import Panel  # noqa: E402
+from rich.table import Table  # noqa: E402
 
-from src.database.connection import init_database, verify_database
-from src.database.repository import Repository
+from src.database.connection import init_database, verify_database  # noqa: E402
+from src.database.repository import Repository  # noqa: E402
 
 console = Console()
 
