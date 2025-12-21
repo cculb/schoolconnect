@@ -8,22 +8,24 @@ from unittest.mock import MagicMock, patch
 STREAMLIT_CHAT_DIR = Path(__file__).parent.parent.parent / "streamlit-chat"
 sys.path.insert(0, str(STREAMLIT_CHAT_DIR))
 
-from ai_assistant import (
+# ruff: noqa: E402
+from ai_assistant import (  # noqa: E402
     ClientAPIError,
     RateLimitAPIError,
     ServerAPIError,
     categorize_error,
     get_ai_response,
 )
-from anthropic import (
+from anthropic import (  # noqa: E402
     APIStatusError,
     AuthenticationError,
     BadRequestError,
     InternalServerError,
     RateLimitError,
 )
-from httpx import Request, Response
-import pytest
+from httpx import Request, Response  # noqa: E402
+
+import pytest  # noqa: E402
 
 pytestmark = pytest.mark.unit
 
