@@ -168,17 +168,38 @@ jobs:
 
       - name: Run scraper to populate database
         run: |
-          echo "Running PowerSchool scraper..."
-          python scripts/scrape_full.py --headless || {
-            echo "Scraper failed, E2E tests will run with potentially empty database"
-            exit 0
+          echo "=== Running PowerSchool scraper ==="
+          python scripts/scrape_full.py --headless 2>&1 || {
+            echo "⚠️ Scraper failed, checking partial results..."
           }
-          echo "Loading data into database..."
-          python scripts/load_data.py || {
-            echo "Data loading failed"
-            exit 0
+
+          echo ""
+          echo "=== Checking scraper output ==="
+          ls -la raw_html/ 2>/dev/null || echo "raw_html/ not created"
+
+          if [ -f raw_html/full_data.json ]; then
+            echo "✅ full_data.json exists"
+            python -c "import json; d=json.load(open('raw_html/full_data.json')); print(f'Students: {len(d.get(\"students\", []))}'); print(f'Current student: {d.get(\"current_student\")}')"
+          else
+            echo "❌ full_data.json not found"
+          fi
+
+          echo ""
+          echo "=== Loading data into database ==="
+          python scripts/load_data.py 2>&1 || {
+            echo "⚠️ Data loading had issues"
           }
-          echo "Scraper completed successfully"
+
+          echo ""
+          echo "=== Verifying database ==="
+          if [ -f powerschool.db ]; then
+            echo "✅ Database exists at $(pwd)/powerschool.db"
+            ls -la powerschool.db
+            python -c "import sqlite3; c=sqlite3.connect('powerschool.db'); print('Tables:', [r[0] for r in c.execute(\"SELECT name FROM sqlite_master WHERE type='table'\").fetchall()])"
+          else
+            echo "❌ Database not found at $(pwd)/powerschool.db"
+            find . -name "*.db" -type f 2>/dev/null || echo "No .db files found"
+          fi
 
       - name: Run E2E tests
         run: |
@@ -248,16 +269,32 @@ jobs:
           # Only run scraper for tasks that need E2E database
           case "$TASK" in
             "scraper-only"|"mcp-only"|"alerts-only"|"full-validation")
-              echo "Running PowerSchool scraper for E2E task: $TASK"
-              python scripts/scrape_full.py --headless || {
-                echo "Scraper failed, tests will run with potentially empty database"
-                exit 0
+              echo "=== Running PowerSchool scraper for E2E task: $TASK ==="
+              python scripts/scrape_full.py --headless 2>&1 || {
+                echo "⚠️ Scraper failed, checking partial results..."
               }
-              python scripts/load_data.py || {
-                echo "Data loading failed"
-                exit 0
-              }
-              echo "Scraper completed successfully"
+
+              echo ""
+              echo "=== Checking scraper output ==="
+              ls -la raw_html/ 2>/dev/null || echo "raw_html/ not created"
+
+              if [ -f raw_html/full_data.json ]; then
+                echo "✅ full_data.json exists"
+                python -c "import json; d=json.load(open('raw_html/full_data.json')); print(f'Students: {len(d.get(\"students\", []))}'); print(f'Current student: {d.get(\"current_student\")}')"
+              fi
+
+              echo ""
+              echo "=== Loading data into database ==="
+              python scripts/load_data.py 2>&1 || echo "⚠️ Data loading had issues"
+
+              echo ""
+              echo "=== Verifying database ==="
+              if [ -f powerschool.db ]; then
+                echo "✅ Database exists at $(pwd)/powerschool.db"
+                python -c "import sqlite3; c=sqlite3.connect('powerschool.db'); print('Tables:', [r[0] for r in c.execute(\"SELECT name FROM sqlite_master WHERE type='table'\").fetchall()])"
+              else
+                echo "❌ Database not found"
+              fi
               ;;
             *)
               echo "Skipping scraper for task: $TASK"
