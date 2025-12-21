@@ -419,7 +419,9 @@ class TestToolLoopRetry:
 
     @patch("ai_assistant.Anthropic")
     @patch("ai_assistant.execute_tool")
-    def test_retries_on_server_error_during_tool_loop(self, mock_execute_tool, mock_anthropic_class):
+    def test_retries_on_server_error_during_tool_loop(
+        self, mock_execute_tool, mock_anthropic_class
+    ):
         """Should retry when server error occurs during tool use loop."""
         mock_client = MagicMock()
         mock_anthropic_class.return_value = mock_client
