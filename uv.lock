@@ -1152,6 +1152,7 @@ dependencies = [
     { name = "playwright" },
     { name = "pydantic" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "rich" },
 ]
 
@@ -1167,11 +1168,6 @@ dev = [
     { name = "requests" },
     { name = "ruff" },
     { name = "streamlit" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "requests" },
 ]
 
 [package.metadata]
@@ -1190,15 +1186,13 @@ requires-dist = [
     { name = "pytest-html", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+    { name = "requests", specifier = ">=2.32.5" },
     { name = "requests", marker = "extra == 'dev'", specifier = ">=2.31.0" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "streamlit", marker = "extra == 'dev'", specifier = ">=1.28.0" },
 ]
 provides-extras = ["dev"]
-
-[package.metadata.requires-dev]
-dev = [{ name = "requests", specifier = ">=2.32.5" }]
 
 [[package]]
 name = "protobuf"

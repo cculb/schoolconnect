@@ -27,6 +27,7 @@ dependencies = [
     "lxml>=5.0.0",
     "python-dotenv>=1.0.0",
     "rich>=13.0.0",
+    "requests>=2.32.5",
 ]
 
 [project.optional-dependencies]
@@ -81,8 +82,3 @@ python_version = "3.12"
 ignore_missing_imports = true
 warn_return_any = true
 warn_unused_configs = true
-
-[dependency-groups]
-dev = [
-    "requests>=2.32.5",
-]
