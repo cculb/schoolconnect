@@ -236,7 +236,10 @@ def streamlit_server(project_root: Path) -> Generator[str, None, None]:
     Yields the base URL of the running server.
     """
     app_path = project_root / "streamlit-chat" / "app.py"
-    db_path = project_root / "powerschool.db"
+    # Database can be in either location - check both
+    db_path = project_root / "streamlit-chat" / "powerschool.db"
+    if not db_path.exists():
+        db_path = project_root / "powerschool.db"
 
     # Set environment for the subprocess
     env = os.environ.copy()
@@ -275,9 +278,12 @@ def streamlit_server(project_root: Path) -> Generator[str, None, None]:
         except Exception:
             time.sleep(0.5)
     else:
+        # Get stderr output for debugging
+        _, stderr = proc.communicate(timeout=5)
         proc.terminate()
         proc.wait()
-        pytest.fail("Streamlit server failed to start")
+        error_msg = stderr.decode() if stderr else "No error output"
+        pytest.fail(f"Streamlit server failed to start. Error: {error_msg[:500]}")
 
     yield base_url
 
