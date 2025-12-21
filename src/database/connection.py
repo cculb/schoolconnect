@@ -113,7 +113,10 @@ class ConnectionPool:
             # Verify connection is still valid
             try:
                 conn.execute("SELECT 1")
-                logger.debug("Reusing connection from pool", extra={"extra_data": {"pool_size": self._pool.qsize()}})
+                logger.debug(
+                    "Reusing connection from pool",
+                    extra={"extra_data": {"pool_size": self._pool.qsize()}},
+                )
                 return conn
             except sqlite3.Error:
                 # Connection is dead, create a new one
@@ -125,7 +128,10 @@ class ConnectionPool:
                 if self._pool.qsize() < self._pool_size:
                     logger.debug("Pool empty, creating new connection")
                     return self._create_connection()
-            logger.error("Connection pool exhausted", extra={"extra_data": {"timeout": self._timeout, "pool_size": self._pool_size}})
+            logger.error(
+                "Connection pool exhausted",
+                extra={"extra_data": {"timeout": self._timeout, "pool_size": self._pool_size}},
+            )
             raise TimeoutError(f"Connection pool exhausted after {self._timeout}s")
 
     def return_connection(self, conn: sqlite3.Connection) -> None:
@@ -297,14 +303,20 @@ def verify_database(db_path: Optional[Path] = None) -> dict:
 if __name__ == "__main__":
     # Test database initialization
     from src.logutils import configure_root_logger
+
     configure_root_logger()
 
     logger.info("Initializing database...")
     init_database(force=True)
     logger.info("Verifying database...")
     info = verify_database()
-    logger.info("Database verification complete", extra={"extra_data": {
-        "tables": info.get("tables", []),
-        "views": info.get("views", []),
-        "row_counts": info.get("row_counts", {}),
-    }})
+    logger.info(
+        "Database verification complete",
+        extra={
+            "extra_data": {
+                "tables": info.get("tables", []),
+                "views": info.get("views", []),
+                "row_counts": info.get("row_counts", {}),
+            }
+        },
+    )

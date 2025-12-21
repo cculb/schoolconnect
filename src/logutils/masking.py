@@ -82,11 +82,20 @@ def mask_sensitive_string(text: str) -> str:
     for _name, pattern in SENSITIVE_PATTERNS.items():
         if _name == "email":
             # For emails, mask the local part
-            result = pattern.sub(lambda m: m.group(0).split("@")[0][:2] + "***@" + m.group(0).split("@")[1], result)
+            result = pattern.sub(
+                lambda m: m.group(0).split("@")[0][:2] + "***@" + m.group(0).split("@")[1], result
+            )
         elif _name == "url_credentials":
             # For URL credentials, keep the protocol and host
             result = pattern.sub(r"\1" + MASK + r"\2", result)
-        elif _name in ("password_param", "password_field", "api_key", "token", "secret", "base64_password"):
+        elif _name in (
+            "password_param",
+            "password_field",
+            "api_key",
+            "token",
+            "secret",
+            "base64_password",
+        ):
             # For these patterns, group 1 is the key part, replace the value
             result = pattern.sub(r"\g<1>" + MASK, result)
         elif _name == "student_id_value":

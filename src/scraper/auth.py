@@ -106,7 +106,9 @@ def login(
             page.goto(login_url, wait_until="networkidle")
             page.wait_for_selector("#fieldAccount", timeout=10000)
 
-            logger.debug("Login form loaded, entering credentials", extra={"extra_data": {"username": user}})
+            logger.debug(
+                "Login form loaded, entering credentials", extra={"extra_data": {"username": user}}
+            )
 
             page.fill("#fieldAccount", user)
             page.fill("#fieldPassword", pwd)
@@ -121,7 +123,10 @@ def login(
         # Check for error message on page
         error = page.query_selector(".feedback-alert")
         if error:
-            logger.warning("Login error message displayed", extra={"extra_data": {"message": error.inner_text()}})
+            logger.warning(
+                "Login error message displayed",
+                extra={"extra_data": {"message": error.inner_text()}},
+            )
         return False
 
 
@@ -322,13 +327,23 @@ def switch_to_student(
             # Give a short delay for the page to fully update
             page.wait_for_timeout(500)
 
-            logger.debug("Student switch navigation completed", extra={"extra_data": {"student_id": student_id}})
+            logger.debug(
+                "Student switch navigation completed",
+                extra={"extra_data": {"student_id": student_id}},
+            )
 
             return True
 
     except PlaywrightTimeout:
-        logger.error("Timeout waiting for student switch", extra={"extra_data": {"student_id": student_id, "timeout_ms": timeout}})
+        logger.error(
+            "Timeout waiting for student switch",
+            extra={"extra_data": {"student_id": student_id, "timeout_ms": timeout}},
+        )
         return False
     except Exception as e:
-        logger.error("Error switching student", extra={"extra_data": {"student_id": student_id, "error": str(e)}}, exc_info=True)
+        logger.error(
+            "Error switching student",
+            extra={"extra_data": {"student_id": student_id, "error": str(e)}},
+            exc_info=True,
+        )
         return False

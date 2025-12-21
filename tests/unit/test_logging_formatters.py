@@ -135,6 +135,7 @@ class TestJSONFormatter:
             raise ValueError("Test error")
         except ValueError:
             import sys
+
             record = self.create_log_record("Error occurred", exc_info=sys.exc_info())
 
         output = formatter.format(record)
