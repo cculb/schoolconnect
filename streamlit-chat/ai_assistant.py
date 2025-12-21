@@ -176,6 +176,9 @@ api_retry = retry(
 )
 
 
+# Configure logging
+logger = logging.getLogger(__name__)
+
 SYSTEM_PROMPT = """You are SchoolPulse, a helpful assistant for parents to understand their child's academic progress.
 
 You have access to these tools to query the student database:
@@ -210,7 +213,7 @@ DEFAULT_MODEL = "claude-sonnet-4-20250514"
 
 # Maximum number of tool use iterations to prevent infinite loops
 # This protects against runaway API credit consumption
-MAX_TOOL_ITERATIONS = 10
+MAX_TOOL_ITERATIONS = 15
 
 
 TOOLS = [
@@ -383,10 +386,17 @@ Current student context:
         while response.stop_reason == "tool_use":
             tool_iterations += 1
             if tool_iterations > MAX_TOOL_ITERATIONS:
+                # Log the tools that were called for debugging
+                tool_uses = [block for block in response.content if block.type == "tool_use"]
+                tool_names = [tool_use.name for tool_use in tool_uses]
                 logger.warning(
-                    f"Tool use loop exceeded {MAX_TOOL_ITERATIONS} iterations, stopping"
+                    f"Tool iteration limit reached. Iteration: {tool_iterations}, "
+                    f"Tools called: {tool_names}, Student: {student_name}"
                 )
-                return "I've been working on your request but it's taking longer than expected. Please try rephrasing your question."
+                return (
+                    f"Error: Maximum tool iteration limit ({MAX_TOOL_ITERATIONS}) reached. "
+                    "This may indicate an infinite loop. Please try rephrasing your question."
+                )
 
             # Find tool use blocks
             tool_uses = [block for block in response.content if block.type == "tool_use"]
