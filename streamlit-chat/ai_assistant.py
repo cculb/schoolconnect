@@ -394,7 +394,7 @@ Current student context:
 
     except Exception as e:
         # Generic error handling
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         return f"Error communicating with AI: {str(e)}"
 
 
