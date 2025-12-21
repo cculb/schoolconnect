@@ -52,7 +52,7 @@ class TestScraperLogin:
             page = browser.new_page()
 
             try:
-                result = login(
+                _result = login(  # noqa: F841
                     page,
                     base_url=powerschool_credentials["url"],
                     username="invalid_user_12345",
