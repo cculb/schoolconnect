@@ -1,11 +1,19 @@
 """Claude AI integration for SchoolPulse chat assistant."""
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
-from anthropic import Anthropic
+from anthropic import (
+    Anthropic,
+    APIStatusError,
+    AuthenticationError,
+    BadRequestError,
+    InternalServerError,
+    RateLimitError,
+)
 from data_queries import (
     get_all_courses,
     get_assignment_stats,
@@ -16,6 +24,141 @@ from data_queries import (
     get_student_summary,
     get_upcoming_assignments,
 )
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+# Set up logging for retry attempts
+logger = logging.getLogger(__name__)
+
+
+# Custom error classes for categorization
+class APIError(Exception):
+    """Base class for API errors with user-friendly messages."""
+
+    def __init__(self, message: str, user_message: str, original_error: Exception | None = None):
+        super().__init__(message)
+        self.user_message = user_message
+        self.original_error = original_error
+
+
+class RateLimitAPIError(APIError):
+    """Rate limit error (429) - should be retried."""
+
+    def __init__(self, original_error: Exception | None = None):
+        super().__init__(
+            message="Rate limit exceeded",
+            user_message="High demand right now. Retrying your request...",
+            original_error=original_error,
+        )
+
+
+class ServerAPIError(APIError):
+    """Server error (5xx) - should be retried."""
+
+    def __init__(self, original_error: Exception | None = None):
+        super().__init__(
+            message="Server error",
+            user_message="Service temporarily unavailable. Please try again in a moment.",
+            original_error=original_error,
+        )
+
+
+class ClientAPIError(APIError):
+    """Client error (4xx except 429) - should NOT be retried."""
+
+    def __init__(self, message: str, original_error: Exception | None = None):
+        super().__init__(
+            message=message,
+            user_message=f"Request error: {message}",
+            original_error=original_error,
+        )
+
+
+def categorize_error(error: Exception) -> APIError:
+    """Categorize an API error for appropriate handling and user messaging.
+
+    Args:
+        error: The exception to categorize
+
+    Returns:
+        An APIError subclass with appropriate user message
+    """
+    if isinstance(error, RateLimitError):
+        return RateLimitAPIError(original_error=error)
+
+    if isinstance(error, InternalServerError):
+        return ServerAPIError(original_error=error)
+
+    if isinstance(error, APIStatusError):
+        # Check status code for server errors (5xx)
+        status_code = getattr(error, "status_code", None)
+        if status_code is None and hasattr(error, "response"):
+            status_code = getattr(error.response, "status_code", None)
+
+        if status_code and 500 <= status_code < 600:
+            return ServerAPIError(original_error=error)
+        elif status_code == 429:
+            return RateLimitAPIError(original_error=error)
+        else:
+            return ClientAPIError(message=str(error), original_error=error)
+
+    if isinstance(error, (BadRequestError, AuthenticationError)):
+        return ClientAPIError(message=str(error), original_error=error)
+
+    # Default to server error for unknown errors (allows retry)
+    return ServerAPIError(original_error=error)
+
+
+def is_retryable_error(error: Exception) -> bool:
+    """Determine if an error should trigger a retry.
+
+    Retries on:
+    - Rate limit errors (429)
+    - Server errors (5xx)
+
+    Does NOT retry on:
+    - Client errors (4xx except 429)
+    - Authentication errors (401)
+    - Bad request errors (400)
+    """
+    if isinstance(error, RateLimitError):
+        return True
+
+    if isinstance(error, InternalServerError):
+        return True
+
+    if isinstance(error, APIStatusError):
+        status_code = getattr(error, "status_code", None)
+        if status_code is None and hasattr(error, "response"):
+            status_code = getattr(error.response, "status_code", None)
+
+        if status_code:
+            # Retry on rate limits and server errors
+            return status_code == 429 or status_code >= 500
+
+    if isinstance(error, (BadRequestError, AuthenticationError)):
+        return False
+
+    # Default to retry for unknown errors
+    return True
+
+
+# Retry decorator for API calls
+# Exponential backoff: 1s, 2s, 4s, 8s (max)
+# Max 3 retries (4 total attempts)
+api_retry = retry(
+    retry=retry_if_exception(is_retryable_error),
+    stop=stop_after_attempt(4),  # 1 initial + 3 retries
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
+
 
 SYSTEM_PROMPT = """You are SchoolPulse, a helpful assistant for parents to understand their child's academic progress.
 
@@ -153,6 +296,21 @@ def execute_tool(tool_name: str, tool_input: dict, student_name: str) -> Any:
         return {"error": f"Unknown tool: {tool_name}"}
 
 
+@api_retry
+def _make_api_call(client: Anthropic, model: str, system: str, messages: list) -> Any:
+    """Make an API call with retry logic.
+
+    This function is decorated with exponential backoff retry for:
+    - Rate limit errors (429)
+    - Server errors (5xx)
+
+    Client errors (4xx except 429) are NOT retried.
+    """
+    return client.messages.create(
+        model=model, max_tokens=1024, system=system, tools=TOOLS, messages=messages
+    )
+
+
 def get_ai_response(
     user_message: str,
     student_context: dict,
@@ -160,7 +318,11 @@ def get_ai_response(
     api_key: str | None = None,
     model: str | None = None,
 ) -> str:
-    """Get AI response using Claude with tool use."""
+    """Get AI response using Claude with tool use.
+
+    Features exponential backoff retry on rate limits and server errors.
+    Returns user-friendly error messages on failure.
+    """
 
     # Use default model if not specified
     if not model:
@@ -193,10 +355,8 @@ Current student context:
     messages.append({"role": "user", "content": user_message})
 
     try:
-        # Initial API call with tools
-        response = client.messages.create(
-            model=model, max_tokens=1024, system=system_with_context, tools=TOOLS, messages=messages
-        )
+        # Initial API call with tools (with retry)
+        response = _make_api_call(client, model, system_with_context, messages)
 
         # Handle tool use loop
         while response.stop_reason == "tool_use":
@@ -219,20 +379,22 @@ Current student context:
             messages.append({"role": "assistant", "content": response.content})
             messages.append({"role": "user", "content": tool_results})
 
-            # Continue the conversation
-            response = client.messages.create(
-                model=model,
-                max_tokens=1024,
-                system=system_with_context,
-                tools=TOOLS,
-                messages=messages,
-            )
+            # Continue the conversation (with retry)
+            response = _make_api_call(client, model, system_with_context, messages)
 
         # Extract text response
         text_blocks = [block.text for block in response.content if hasattr(block, "text")]
         return "\n".join(text_blocks) if text_blocks else "I couldn't generate a response."
 
+    except (RateLimitError, InternalServerError, APIStatusError) as e:
+        # Categorize error for user-friendly message
+        categorized = categorize_error(e)
+        logger.error(f"API error after retries: {e}")
+        return f"Error: {categorized.user_message}"
+
     except Exception as e:
+        # Generic error handling
+        logger.error(f"Unexpected error: {e}")
         return f"Error communicating with AI: {str(e)}"
 
 

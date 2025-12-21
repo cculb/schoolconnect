@@ -268,3 +268,8 @@ class TestChatInterface:
         # Should have user and assistant messages
         messages = logged_in_page.locator('[data-testid="stChatMessage"]')
         expect(messages).to_have_count(2, timeout=10000)
+
+    def test_chat_input_has_placeholder(self, logged_in_page: Page):
+        """Verify placeholder text is correct."""
+        chat_input = logged_in_page.locator('[data-testid="stChatInput"] textarea')
+        expect(chat_input).to_have_attribute("placeholder", "Ask about your child's progress...")

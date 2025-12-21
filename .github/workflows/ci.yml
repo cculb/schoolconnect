@@ -409,7 +409,7 @@ jobs:
     name: Post Results to PR
     runs-on: ubuntu-latest
     needs: [e2e-tests]
-    if: github.event_name == 'pull_request' && always()
+    if: github.event_name == 'pull_request' && always() && needs.e2e-tests.result != 'skipped'
     permissions:
       pull-requests: write
     steps:
