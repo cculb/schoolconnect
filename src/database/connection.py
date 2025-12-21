@@ -51,6 +51,8 @@ class ConnectionPool:
         self._pool: Queue[sqlite3.Connection] = Queue(maxsize=pool_size)
         self._lock = threading.Lock()
         self._initialized = False
+        # Track total connections (in-use + available) to prevent exceeding pool size
+        self._total_connections = 0
 
     @staticmethod
     def _validate_path(db_path: Path) -> Path:
@@ -119,20 +121,41 @@ class ConnectionPool:
                 )
                 return conn
             except sqlite3.Error:
-                # Connection is dead, create a new one
+                # Connection is dead, decrement counter and create a new one
+                with self._lock:
+                    self._total_connections -= 1
                 logger.debug("Dead connection detected, creating new one")
-                return self._create_connection()
+                return self._create_connection_tracked()
         except Empty:
-            # Pool is empty, try to create a new connection
-            with self._lock:
-                if self._pool.qsize() < self._pool_size:
-                    logger.debug("Pool empty, creating new connection")
+            # Pool is empty, try to create a new connection if under limit
+            return self._create_connection_tracked()
+
+    def _create_connection_tracked(self) -> sqlite3.Connection:
+        """Create a new connection with tracking, respecting pool size limit.
+
+        Returns:
+            SQLite connection
+
+        Raises:
+            TimeoutError: If pool is exhausted
+        """
+        with self._lock:
+            if self._total_connections < self._pool_size:
+                self._total_connections += 1
+                logger.debug(
+                    "Creating new connection",
+                    extra={"extra_data": {"total_connections": self._total_connections}},
+                )
+                try:
                     return self._create_connection()
-            logger.error(
-                "Connection pool exhausted",
-                extra={"extra_data": {"timeout": self._timeout, "pool_size": self._pool_size}},
-            )
-            raise TimeoutError(f"Connection pool exhausted after {self._timeout}s")
+                except Exception:
+                    self._total_connections -= 1
+                    raise
+        logger.error(
+            "Connection pool exhausted",
+            extra={"extra_data": {"timeout": self._timeout, "pool_size": self._pool_size}},
+        )
+        raise TimeoutError(f"Connection pool exhausted after {self._timeout}s")
 
     def return_connection(self, conn: sqlite3.Connection) -> None:
         """Return a connection to the pool.
@@ -143,7 +166,9 @@ class ConnectionPool:
         try:
             self._pool.put_nowait(conn)
         except Exception:
-            # Pool is full, close the connection
+            # Pool is full, close the connection and decrement counter
+            with self._lock:
+                self._total_connections -= 1
             try:
                 conn.close()
             except sqlite3.Error:
@@ -151,12 +176,16 @@ class ConnectionPool:
 
     def close_all(self) -> None:
         """Close all connections in the pool."""
-        while not self._pool.empty():
-            try:
-                conn = self._pool.get_nowait()
-                conn.close()
-            except (Empty, sqlite3.Error):
-                pass
+        with self._lock:
+            while not self._pool.empty():
+                try:
+                    conn = self._pool.get_nowait()
+                    conn.close()
+                    self._total_connections -= 1
+                except (Empty, sqlite3.Error):
+                    pass
+            # Reset counter in case of any tracking discrepancies
+            self._total_connections = 0
 
 
 # Global connection pools (one per database path)
@@ -276,16 +305,21 @@ def verify_database(db_path: Optional[Path] = None) -> dict:
             counts = {}
             # Only count tables that exist in sqlite_master (already validated)
             for table in tables:
-                # Extra validation: ensure table name is alphanumeric/underscore only
-                if table.replace("_", "").isalnum():
+                # Strict validation: alphanumeric/underscore only, no brackets, reasonable length
+                if (
+                    table.replace("_", "").isalnum()
+                    and "[" not in table
+                    and "]" not in table
+                    and len(table) <= 128
+                ):
                     cursor = conn.execute(
                         "SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table' AND name=?",
                         (table,),
                     )
                     if cursor.fetchone()["cnt"] > 0:
-                        # Safe to query - table exists and name is validated
+                        # Safe to query - table exists and name is strictly validated
                         cursor = conn.execute(
-                            f"SELECT COUNT(*) as cnt FROM [{table}]"  # Bracket quoting
+                            f"SELECT COUNT(*) as cnt FROM [{table}]"  # Bracket quoting for SQLite
                         )
                         counts[table] = cursor.fetchone()["cnt"]
 

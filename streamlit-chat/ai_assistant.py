@@ -3,8 +3,12 @@
 import json
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Any
+
+# Add parent directory to path for src imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from anthropic import (
     Anthropic,
@@ -32,13 +36,11 @@ from tenacity import (
     wait_exponential,
 )
 
-# Configure logging for this module
-# Basic config ensures logs are visible in production
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+from src.logutils import get_logger
+
+# Use structured logging from the logging infrastructure
+# This avoids conflicts with basicConfig and ensures proper masking
+logger = get_logger(__name__)
 
 
 # Custom error classes for categorization

@@ -81,10 +81,17 @@ def mask_sensitive_string(text: str) -> str:
     # Apply pattern-based masking
     for _name, pattern in SENSITIVE_PATTERNS.items():
         if _name == "email":
-            # For emails, mask the local part
-            result = pattern.sub(
-                lambda m: m.group(0).split("@")[0][:2] + "***@" + m.group(0).split("@")[1], result
-            )
+            # For emails, mask the local part with defensive handling
+            def mask_email(match: re.Match[str]) -> str:
+                email = match.group(0)
+                parts = email.split("@")
+                if len(parts) == 2:
+                    local, domain = parts
+                    return local[:2] + "***@" + domain
+                # Fallback for malformed emails - mask entirely
+                return MASK
+
+            result = pattern.sub(mask_email, result)
         elif _name == "url_credentials":
             # For URL credentials, keep the protocol and host
             result = pattern.sub(r"\1" + MASK + r"\2", result)
@@ -117,7 +124,9 @@ def mask_dict(data: dict[str, Any], depth: int = 0, max_depth: int = 10) -> dict
         Dictionary with sensitive values masked
     """
     if depth >= max_depth:
-        return data
+        # Return truncated indicator instead of original data to prevent
+        # potential PII/credential leakage in deeply nested structures
+        return {"__truncated__": "max depth reached"}
 
     result: dict[str, Any] = {}
 

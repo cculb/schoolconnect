@@ -1169,6 +1169,11 @@ dev = [
     { name = "streamlit" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "requests" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "anthropic", marker = "extra == 'dev'", specifier = ">=0.20.0" },
@@ -1191,6 +1196,9 @@ requires-dist = [
     { name = "streamlit", marker = "extra == 'dev'", specifier = ">=1.28.0" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "requests", specifier = ">=2.32.5" }]
 
 [[package]]
 name = "protobuf"
