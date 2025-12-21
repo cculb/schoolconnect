@@ -264,17 +264,21 @@ def streamlit_server(project_root: Path) -> Generator[str, None, None]:
     db_path = seed_test_database(project_root)
 
     # Set environment for the subprocess
+    # Use relative path since we'll run from streamlit-chat directory
     env = os.environ.copy()
-    env["DATABASE_PATH"] = str(db_path)
+    env["DATABASE_PATH"] = "powerschool.db"  # Relative to streamlit-chat dir
 
-    # Start Streamlit server
+    # Start Streamlit server from the streamlit-chat directory
+    # so that local imports (auth, session_manager, etc.) work correctly
+    streamlit_chat_dir = project_root / "streamlit-chat"
+
     proc = subprocess.Popen(
         [
             sys.executable,
             "-m",
             "streamlit",
             "run",
-            str(app_path),
+            "app.py",  # Use relative path since we're in streamlit-chat dir
             "--server.port",
             str(STREAMLIT_PORT),
             "--server.headless",
@@ -284,6 +288,7 @@ def streamlit_server(project_root: Path) -> Generator[str, None, None]:
             "--browser.gatherUsageStats",
             "false",
         ],
+        cwd=str(streamlit_chat_dir),  # Run from streamlit-chat directory
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
