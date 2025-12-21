@@ -190,7 +190,7 @@ AVAILABLE_MODELS = {
     "claude-haiku-3-5-20241022": "Claude Haiku 3.5 (Fastest)",
 }
 
-DEFAULT_MODEL = "claude-opus-4-5-20250514"
+DEFAULT_MODEL = "claude-sonnet-4-20250514"
 
 
 TOOLS = [

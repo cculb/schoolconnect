@@ -1,8 +1,6 @@
 # Environment and secrets
 .env
 *.db
-*.db-shm
-*.db-wal
 *.sqlite
 
 # Python
@@ -61,3 +59,5 @@ test-results/
 
 # Research docs (not tracked)
 docs/research/
+*.db-shm
+*.db-wal

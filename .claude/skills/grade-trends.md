@@ -1,5 +1,8 @@
 ---
+name: grade-trends
 description: Identify and analyze grade trends across academic terms (Q1, Q2, Q3, Q4, S1, S2) to spot improvement or decline requiring intervention
+whenToUse: User asks about grade changes over time, improvement, decline, or progress tracking. Triggered by phrases like "grade trends", "improving grades", "grades getting worse", or "grade history".
+tags: [student-data, schoolconnect, analytics]
 ---
 
 # Grade Trends Analysis

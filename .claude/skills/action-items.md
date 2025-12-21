@@ -1,5 +1,8 @@
 ---
+name: action-items
 description: Get prioritized, actionable next steps for parents based on missing assignments, attendance concerns, and grade issues
+whenToUse: User asks for action items, priorities, next steps, or what to do about academic concerns. Triggered by phrases like "what should I do", "action items", "priorities", "next steps", or "what needs attention".
+tags: [student-data, schoolconnect, analytics]
 ---
 
 # Prioritized Action Items
