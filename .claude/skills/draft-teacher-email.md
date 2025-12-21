@@ -1,8 +1,8 @@
 ---
 name: draft-teacher-email
 description: Draft professional, courteous emails to teachers about various topics including missing work, grade concerns, meeting requests, or general check-ins
-whenToUse: User asks to draft, write, or compose an email to a teacher. Triggered by phrases like "draft an email", "write an email to", "compose a message to", or "email [teacher name]".
-tags: [student-data, schoolconnect, communication]
+whenToUse: User asks to draft an email, write to a teacher, or compose a message. Triggered by phrases like "draft email", "write to teacher", "email Mr./Mrs. [Name]", or "compose message".
+tags: [communication, schoolconnect]
 ---
 
 # Draft Teacher Email
