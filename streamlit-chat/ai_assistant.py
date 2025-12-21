@@ -32,12 +32,8 @@ from tenacity import (
     wait_exponential,
 )
 
-# Configure logging for this module
-# Basic config ensures logs are visible in production
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Get logger for this module
+# Uses structured logging infrastructure when configured, falls back to standard logging
 logger = logging.getLogger(__name__)
 
 

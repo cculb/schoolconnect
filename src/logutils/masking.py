@@ -117,7 +117,9 @@ def mask_dict(data: dict[str, Any], depth: int = 0, max_depth: int = 10) -> dict
         Dictionary with sensitive values masked
     """
     if depth >= max_depth:
-        return data
+        # Return masked placeholder instead of original data to prevent PII leakage
+        # in deeply nested structures
+        return {"_truncated": MASK}
 
     result: dict[str, Any] = {}
 

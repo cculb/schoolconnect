@@ -141,12 +141,24 @@ class TestMaskDict:
         assert result["users"][0]["name"] == "John"
 
     def test_max_depth(self):
-        """Masking should respect max depth."""
+        """Masking should respect max depth and prevent PII leakage."""
         deeply_nested = {"level1": {"level2": {"level3": {"password": "secret"}}}}
-        # With depth limit of 2, innermost password won't be masked
+        # With depth limit of 2, content beyond that is truncated with MASK
         result = mask_dict(deeply_nested, max_depth=2)
-        # The password key at depth 3+ should still be processed
-        assert result is not None
+        # Should return truncated placeholder to prevent PII leakage
+        assert result["level1"]["level2"] == {"_truncated": MASK}
+        # Ensure original sensitive data is NOT exposed
+        assert "secret" not in str(result)
+
+    def test_max_depth_prevents_pii_leakage(self):
+        """Max depth should never return original unmasked data."""
+        # Build a structure that exceeds max_depth
+        data = {"a": {"b": {"c": {"d": {"password": "super_secret"}}}}}
+        result = mask_dict(data, max_depth=3)
+        # Verify sensitive data is never exposed
+        assert "super_secret" not in str(result)
+        # The deeply nested content should be truncated
+        assert result["a"]["b"]["c"] == {"_truncated": MASK}
 
     def test_string_values_in_dict(self):
         """String values should have sensitive patterns masked."""
