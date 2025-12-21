@@ -49,6 +49,8 @@ AVAILABLE_MODELS = {
 
 DEFAULT_MODEL = "claude-opus-4-5-20250514"
 
+# Maximum number of tool use iterations to prevent infinite loops
+MAX_TOOL_ITERATIONS = 15
 
 TOOLS = [
     {
@@ -198,8 +200,18 @@ Current student context:
             model=model, max_tokens=1024, system=system_with_context, tools=TOOLS, messages=messages
         )
 
-        # Handle tool use loop
+        # Handle tool use loop with iteration limit
+        iteration_count = 0
         while response.stop_reason == "tool_use":
+            iteration_count += 1
+
+            # Check for infinite loop protection
+            if iteration_count > MAX_TOOL_ITERATIONS:
+                return (
+                    f"Error: Maximum tool iteration limit ({MAX_TOOL_ITERATIONS}) reached. "
+                    "This may indicate an infinite loop. Please try rephrasing your question."
+                )
+
             # Find tool use blocks
             tool_uses = [block for block in response.content if block.type == "tool_use"]
 
