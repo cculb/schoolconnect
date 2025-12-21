@@ -1,6 +1,5 @@
 """Tests for sensitive data masking."""
 
-
 from src.logutils.masking import (
     MASK,
     SensitiveValue,
@@ -24,7 +23,7 @@ class TestMaskSensitiveString:
 
     def test_password_in_key_value(self):
         """Password in key=value format should be masked."""
-        text = 'password=mysecret123'
+        text = "password=mysecret123"
         result = mask_sensitive_string(text)
         assert "mysecret123" not in result
         assert MASK in result
@@ -38,19 +37,19 @@ class TestMaskSensitiveString:
 
     def test_api_key(self):
         """API keys should be masked."""
-        text = 'api_key=abc123xyz'
+        text = "api_key=abc123xyz"
         result = mask_sensitive_string(text)
         assert "abc123xyz" not in result
 
     def test_bearer_token(self):
         """Bearer tokens should be masked."""
-        text = 'auth_token=eyJhbGciOiJIUzI1NiJ9'
+        text = "auth_token=eyJhbGciOiJIUzI1NiJ9"
         result = mask_sensitive_string(text)
         assert "eyJhbGciOiJIUzI1NiJ9" not in result
 
     def test_url_credentials(self):
         """Credentials in URLs should be masked."""
-        text = 'https://user:password123@example.com/api'
+        text = "https://user:password123@example.com/api"
         result = mask_sensitive_string(text)
         assert "password123" not in result
         assert "https://" in result
@@ -58,13 +57,13 @@ class TestMaskSensitiveString:
 
     def test_base64_password(self):
         """Base64 encoded passwords should be masked."""
-        text = 'password_b64=c2VjcmV0MTIz'
+        text = "password_b64=c2VjcmV0MTIz"
         result = mask_sensitive_string(text)
         assert "c2VjcmV0MTIz" not in result
 
     def test_email_partial_mask(self):
         """Emails should be partially masked."""
-        text = 'user email: john.doe@example.com'
+        text = "user email: john.doe@example.com"
         result = mask_sensitive_string(text)
         assert "john.doe@example.com" not in result
         # Should preserve domain
@@ -72,7 +71,7 @@ class TestMaskSensitiveString:
 
     def test_multiple_sensitive_values(self):
         """Multiple sensitive values should all be masked."""
-        text = 'password=secret1 api_key=key123'
+        text = "password=secret1 api_key=key123"
         result = mask_sensitive_string(text)
         assert "secret1" not in result
         assert "key123" not in result
