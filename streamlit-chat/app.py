@@ -12,6 +12,49 @@ from ai_assistant import (
 )
 from data_queries import get_student_summary
 
+
+def get_contextual_starters(summary: dict) -> list[dict]:
+    """Generate conversation starters based on student data."""
+    starters = []
+
+    # Always include general starters
+    starters.append({"icon": "🎯", "text": "What should we prioritize this week?"})
+    starters.append({"icon": "📊", "text": "How is my child doing overall?"})
+
+    # Context-based starters
+    missing = summary.get("missing_assignments", 0)
+    if missing > 0:
+        starters.append({
+            "icon": "📋",
+            "text": f"How can we address the {missing} missing assignment{'s' if missing > 1 else ''}?"
+        })
+
+    attendance = summary.get("attendance_rate", 100)
+    if attendance < 90:
+        starters.append({
+            "icon": "🏫",
+            "text": f"Attendance is at {attendance}%. Should I be concerned?"
+        })
+    elif attendance >= 95:
+        starters.append({
+            "icon": "🏫",
+            "text": "Great attendance! How can we maintain it?"
+        })
+
+    days_absent = summary.get("days_absent", 0)
+    if days_absent > 3:
+        starters.append({
+            "icon": "📅",
+            "text": f"My child has been absent {days_absent} days. What should I know?"
+        })
+
+    # Add helpful general starters
+    starters.append({"icon": "✉️", "text": "Help me write an email to a teacher"})
+    starters.append({"icon": "💡", "text": "Suggest study strategies for middle school"})
+
+    return starters[:6]  # Limit to 6 starters
+
+
 # Page configuration - mobile friendly
 st.set_page_config(
     page_title="SchoolPulse",
@@ -20,36 +63,161 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Mobile-friendly CSS
+# Dark theme CSS with mobile-friendly styling
 st.markdown("""
 <style>
+    /* === Base Layout === */
     .stApp { max-width: 100%; }
-    .stChatMessage { padding: 0.5rem; }
-    .stButton > button {
-        width: 100%;
-        margin: 0.25rem 0;
-        border-radius: 20px;
-    }
+
     .main .block-container {
         padding-top: 1rem;
         padding-bottom: 1rem;
         max-width: 800px;
     }
-    /* Make chat input sticky at bottom on mobile */
-    .stChatInputContainer {
-        position: sticky;
-        bottom: 0;
-        background: white;
-        padding: 0.5rem 0;
+
+    /* === Typography === */
+    h1 {
+        font-size: 1.5rem !important;
+        color: #E4E6EB !important;
     }
+    h3 {
+        font-size: 1rem !important;
+        color: #A8ABB0 !important;
+    }
+
+    /* === Chat Messages === */
+    .stChatMessage {
+        padding: 0.5rem;
+        border-radius: 12px;
+    }
+
+    /* === Buttons === */
+    .stButton > button {
+        width: 100%;
+        margin: 0.25rem 0;
+        border-radius: 20px;
+        background-color: #323844 !important;
+        border: 1px solid #454B58 !important;
+        color: #E4E6EB !important;
+        transition: all 0.2s ease;
+    }
+
+    .stButton > button:hover {
+        background-color: #3D4450 !important;
+        border-color: #5B8DEF !important;
+        box-shadow: 0 2px 8px rgba(91, 141, 239, 0.25);
+    }
+
+    .stButton > button:active {
+        background-color: #5B8DEF !important;
+        color: #FFFFFF !important;
+    }
+
     /* Quick action button styling */
     div[data-testid="column"] > div > div > div > button {
         font-size: 0.9rem;
         padding: 0.5rem;
     }
-    /* Reduce header size on mobile */
-    h1 { font-size: 1.5rem !important; }
-    h3 { font-size: 1rem !important; }
+
+    /* === Chat Input === */
+    .stChatInputContainer {
+        position: sticky;
+        bottom: 0;
+        background: #1E2128;
+        padding: 0.5rem 0;
+        border-top: 1px solid #323844;
+    }
+
+    [data-testid="stChatInput"] textarea {
+        background-color: #282C35 !important;
+        border: 1px solid #454B58 !important;
+        border-radius: 24px !important;
+        color: #E4E6EB !important;
+    }
+
+    [data-testid="stChatInput"] textarea:focus {
+        border-color: #5B8DEF !important;
+        box-shadow: 0 0 0 2px rgba(91, 141, 239, 0.25) !important;
+    }
+
+    [data-testid="stChatInput"] textarea::placeholder {
+        color: #72767D !important;
+    }
+
+    /* === Sidebar === */
+    [data-testid="stSidebar"] {
+        background-color: #1A1D23 !important;
+        border-right: 1px solid #323844;
+    }
+
+    /* === Text Inputs === */
+    .stTextInput > div > div > input {
+        background-color: #282C35 !important;
+        border: 1px solid #454B58 !important;
+        border-radius: 8px !important;
+        color: #E4E6EB !important;
+    }
+
+    .stTextInput > div > div > input:focus {
+        border-color: #5B8DEF !important;
+        box-shadow: 0 0 0 2px rgba(91, 141, 239, 0.25) !important;
+    }
+
+    /* === Select Boxes === */
+    .stSelectbox > div > div {
+        background-color: #282C35 !important;
+        border: 1px solid #454B58 !important;
+        border-radius: 8px !important;
+    }
+
+    /* === Info Box (Welcome message) === */
+    [data-testid="stAlert"] {
+        background-color: rgba(91, 141, 239, 0.1) !important;
+        border: 1px solid rgba(91, 141, 239, 0.3) !important;
+        border-radius: 12px;
+    }
+
+    /* === Dividers === */
+    hr {
+        border-color: #323844 !important;
+    }
+
+    /* === Caption text === */
+    .stCaption, [data-testid="stCaptionContainer"] {
+        color: #72767D !important;
+    }
+
+    /* === Conversation Starter Pills === */
+    .starter-btn button {
+        background-color: #282C35 !important;
+        border: 1px solid #454B58 !important;
+        font-size: 0.85rem !important;
+        padding: 0.4rem 0.8rem !important;
+    }
+
+    .starter-btn button:hover {
+        background-color: #323844 !important;
+        border-color: #5B8DEF !important;
+    }
+
+    /* === Scrollbar styling === */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #1E2128;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #454B58;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #5B8DEF;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -254,7 +422,7 @@ if prompt := st.chat_input("Ask about your child's progress..."):
     # Add assistant response to history
     st.session_state.messages.append({"role": "assistant", "content": response})
 
-# Show student summary at start if no messages
+# Show student summary and conversation starters when chat is empty
 if not st.session_state.messages:
     try:
         db_path = get_db_path()
@@ -267,8 +435,46 @@ if not st.session_state.messages:
 - 📚 **Courses**: {summary.get('course_count', 0)}
 - 📝 **Missing Assignments**: {summary.get('missing_assignments', 0)}
 - 🏫 **Attendance**: {summary.get('attendance_rate', 0)}%
-
-Use the quick action buttons above or ask me anything!
             """)
+
+            # Show context-based conversation starters
+            st.markdown("**Try asking:**")
+            starters = get_contextual_starters(summary)
+
+            # Render starters in rows of 2
+            for i in range(0, len(starters), 2):
+                cols = st.columns(2)
+                for j, col in enumerate(cols):
+                    if i + j < len(starters):
+                        starter = starters[i + j]
+                        with col:
+                            if st.button(
+                                f"{starter['icon']} {starter['text']}",
+                                key=f"starter_{i+j}",
+                                use_container_width=True
+                            ):
+                                # Add user message
+                                st.session_state.messages.append({
+                                    "role": "user",
+                                    "content": starter['text']
+                                })
+                                # Get AI response
+                                if st.session_state.api_key:
+                                    response = get_ai_response(
+                                        starter['text'],
+                                        {"student_name": st.session_state.student_name},
+                                        [],
+                                        st.session_state.api_key,
+                                        st.session_state.model
+                                    )
+                                else:
+                                    response = "Please enter your Anthropic API key in the sidebar settings."
+                                st.session_state.messages.append({
+                                    "role": "assistant",
+                                    "content": response
+                                })
+                                st.rerun()
+        else:
+            st.info("Welcome to SchoolPulse! Use the quick action buttons or ask me about your child's progress.")
     except Exception:
         st.info("Welcome to SchoolPulse! Use the quick action buttons or ask me about your child's progress.")
