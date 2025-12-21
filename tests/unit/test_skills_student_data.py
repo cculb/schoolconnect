@@ -145,9 +145,9 @@ class TestSkillFrontmatter:
         description = frontmatter["description"]
         assert isinstance(description, str), f"description should be string in {skill_name}"
         # Between 10 and 300 characters is reasonable for 1-2 sentences
-        assert (
-            10 <= len(description) <= 300
-        ), f"description length unreasonable in {skill_name}: {len(description)}"
+        assert 10 <= len(description) <= 300, (
+            f"description length unreasonable in {skill_name}: {len(description)}"
+        )
 
     @pytest.mark.parametrize("skill_name", EXPECTED_SKILLS)
     def test_frontmatter_tags_include_required(self, skill_name):
@@ -213,9 +213,7 @@ class TestMCPToolReferences:
 
         # All referenced tools should be valid
         invalid_tools = tools - VALID_MCP_TOOLS
-        assert not invalid_tools, (
-            f"Invalid MCP tool references in {skill_name}: {invalid_tools}"
-        )
+        assert not invalid_tools, f"Invalid MCP tool references in {skill_name}: {invalid_tools}"
 
     @pytest.mark.parametrize("skill_name", EXPECTED_SKILLS)
     def test_references_at_least_one_tool(self, skill_name):
@@ -274,7 +272,5 @@ class TestSkillExamples:
         _, markdown = extract_frontmatter(content)
 
         # Should have "Example" or "Usage" section
-        has_example = bool(
-            re.search(r"##?\s+(Example|Usage|How to Use)", markdown, re.IGNORECASE)
-        )
+        has_example = bool(re.search(r"##?\s+(Example|Usage|How to Use)", markdown, re.IGNORECASE))
         assert has_example, f"Should have Example/Usage section in {skill_name}"
