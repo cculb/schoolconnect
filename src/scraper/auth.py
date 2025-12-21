@@ -12,7 +12,12 @@ from dotenv import load_dotenv
 from playwright.sync_api import Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
+from src.logutils import get_logger, with_context
+
 load_dotenv()
+
+# Module logger
+logger = get_logger(__name__)
 
 # Configuration from environment
 BASE_URL = os.getenv("POWERSCHOOL_URL")
@@ -90,37 +95,33 @@ def login(
     pwd = password or PASSWORD
 
     if not user or not pwd:
-        if verbose:
-            print("Error: Missing credentials")
+        logger.error("Missing credentials for PowerSchool login")
         return False
 
     login_url = f"{url}/public/home.html"
-    if verbose:
-        print(f"Navigating to {login_url}")
+    logger.info("Navigating to login page", extra={"extra_data": {"url": login_url}})
 
     try:
-        page.goto(login_url, wait_until="networkidle")
-        page.wait_for_selector("#fieldAccount", timeout=10000)
+        with with_context(operation="login", component="auth"):
+            page.goto(login_url, wait_until="networkidle")
+            page.wait_for_selector("#fieldAccount", timeout=10000)
 
-        if verbose:
-            print(f"Logging in as {user}...")
+            logger.debug("Login form loaded, entering credentials", extra={"extra_data": {"username": user}})
 
-        page.fill("#fieldAccount", user)
-        page.fill("#fieldPassword", pwd)
-        page.click("#btn-enter-sign-in")
+            page.fill("#fieldAccount", user)
+            page.fill("#fieldPassword", pwd)
+            page.click("#btn-enter-sign-in")
 
-        page.wait_for_url("**/guardian/**", timeout=timeout)
-        if verbose:
-            print("Login successful!")
-        return True
+            page.wait_for_url("**/guardian/**", timeout=timeout)
+            logger.info("Login successful", extra={"extra_data": {"username": user}})
+            return True
 
     except Exception as e:
-        if verbose:
-            print(f"Login failed: {e}")
-            # Check for error message on page
-            error = page.query_selector(".feedback-alert")
-            if error:
-                print(f"Error message: {error.inner_text()}")
+        logger.error("Login failed", extra={"extra_data": {"error": str(e)}}, exc_info=True)
+        # Check for error message on page
+        error = page.query_selector(".feedback-alert")
+        if error:
+            logger.warning("Login error message displayed", extra={"extra_data": {"message": error.inner_text()}})
         return False
 
 
@@ -287,52 +288,47 @@ def switch_to_student(
         True
     """
     try:
-        # Find the switch student form
-        form = page.query_selector("#switch_student_form")
-        if not form:
-            if verbose:
-                print("Student switch form not found on page")
-            return False
+        with with_context(operation="switch_student", student_id=student_id, component="auth"):
+            # Find the switch student form
+            form = page.query_selector("#switch_student_form")
+            if not form:
+                logger.warning("Student switch form not found on page")
+                return False
 
-        # Find the hidden input for student ID
-        student_input = page.query_selector(
-            '#switch_student_form input[name="selected_student_id"]'
-        )
-        if not student_input:
-            if verbose:
-                print("Student ID input not found in form")
-            return False
+            # Find the hidden input for student ID
+            student_input = page.query_selector(
+                '#switch_student_form input[name="selected_student_id"]'
+            )
+            if not student_input:
+                logger.warning("Student ID input not found in form")
+                return False
 
-        if verbose:
-            print(f"Switching to student ID: {student_id}")
+            logger.info("Switching to student", extra={"extra_data": {"student_id": student_id}})
 
-        # Fill the student ID value using JavaScript to avoid focus issues
-        page.evaluate(
-            """(studentId) => {
-                var form = document.getElementById('switch_student_form');
-                form.selected_student_id.value = studentId;
-                form.submit();
-            }""",
-            student_id,
-        )
+            # Fill the student ID value using JavaScript to avoid focus issues
+            page.evaluate(
+                """(studentId) => {
+                    var form = document.getElementById('switch_student_form');
+                    form.selected_student_id.value = studentId;
+                    form.submit();
+                }""",
+                student_id,
+            )
 
-        # Wait for navigation to complete
-        page.wait_for_load_state("networkidle", timeout=timeout)
+            # Wait for navigation to complete
+            page.wait_for_load_state("networkidle", timeout=timeout)
 
-        # Verify the switch worked by checking current student
-        # Give a short delay for the page to fully update
-        page.wait_for_timeout(500)
+            # Verify the switch worked by checking current student
+            # Give a short delay for the page to fully update
+            page.wait_for_timeout(500)
 
-        if verbose:
-            print("Student switch navigation completed")
+            logger.debug("Student switch navigation completed", extra={"extra_data": {"student_id": student_id}})
 
-        return True
+            return True
 
     except PlaywrightTimeout:
-        if verbose:
-            print(f"Timeout waiting for student switch (student_id={student_id})")
+        logger.error("Timeout waiting for student switch", extra={"extra_data": {"student_id": student_id, "timeout_ms": timeout}})
         return False
     except Exception as e:
-        if verbose:
-            print(f"Error switching student: {e}")
+        logger.error("Error switching student", extra={"extra_data": {"student_id": student_id, "error": str(e)}}, exc_info=True)
         return False
