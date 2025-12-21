@@ -410,8 +410,12 @@ class TestCourseScoreCalculations:
         course_id = repo.upsert_course(student_id, "Math 6")
 
         if hasattr(repo, "add_course_category"):
-            repo.add_course_category(course_id, "Formative", 30.0, points_earned=85, points_possible=100)
-            repo.add_course_category(course_id, "Summative", 70.0, points_earned=90, points_possible=100)
+            repo.add_course_category(
+                course_id, "Formative", 30.0, points_earned=85, points_possible=100
+            )
+            repo.add_course_category(
+                course_id, "Summative", 70.0, points_earned=90, points_possible=100
+            )
 
         details = repo.get_course_score_details(course_id)
 

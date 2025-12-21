@@ -466,9 +466,7 @@ class RepositoryAdapter:
                 return dict(result)
             return {"error": "No attendance data found"}
 
-    def get_upcoming_assignments(
-        self, student_name: str, days: int = 7
-    ) -> List[Dict[str, Any]]:
+    def get_upcoming_assignments(self, student_name: str, days: int = 7) -> List[Dict[str, Any]]:
         """Get assignments due in the next N days.
 
         Args:
@@ -503,9 +501,7 @@ class RepositoryAdapter:
             )
             return [dict(row) for row in cursor.fetchall()]
 
-    def get_course_details(
-        self, student_name: str, course_name: str
-    ) -> Dict[str, Any]:
+    def get_course_details(self, student_name: str, course_name: str) -> Dict[str, Any]:
         """Get detailed information about a specific course.
 
         Args:

@@ -66,17 +66,62 @@ def test_db(tmp_path: Path) -> Generator[Path, None, None]:
     # Insert test teacher comments
     test_comments = [
         # Q1 comments
-        (1, None, "Mathematics (grade 6)", "52036", "1/6(A-B)", "Smith, John",
-         "john.smith@school.net", "Q1", "Excellent progress in algebra this quarter!"),
-        (1, None, "Language Arts (grade 6)", "51034", "2/6(A-B)", "Jones, Mary",
-         "mary.jones@school.net", "Q1", "Great participation in class discussions."),
-        (1, None, "Science (grade 6)", "53001", "3/6(A-B)", "Miller, Stephen",
-         "stephen.miller@school.net", "Q1", "Needs to improve lab report writing."),
+        (
+            1,
+            None,
+            "Mathematics (grade 6)",
+            "52036",
+            "1/6(A-B)",
+            "Smith, John",
+            "john.smith@school.net",
+            "Q1",
+            "Excellent progress in algebra this quarter!",
+        ),
+        (
+            1,
+            None,
+            "Language Arts (grade 6)",
+            "51034",
+            "2/6(A-B)",
+            "Jones, Mary",
+            "mary.jones@school.net",
+            "Q1",
+            "Great participation in class discussions.",
+        ),
+        (
+            1,
+            None,
+            "Science (grade 6)",
+            "53001",
+            "3/6(A-B)",
+            "Miller, Stephen",
+            "stephen.miller@school.net",
+            "Q1",
+            "Needs to improve lab report writing.",
+        ),
         # Q2 comments
-        (1, None, "Mathematics (grade 6)", "52036", "1/6(A-B)", "Smith, John",
-         "john.smith@school.net", "Q2", "Continued growth in problem solving skills."),
-        (1, None, "Language Arts (grade 6)", "51034", "2/6(A-B)", "Jones, Mary",
-         "mary.jones@school.net", "Q2", "Reading comprehension has improved significantly."),
+        (
+            1,
+            None,
+            "Mathematics (grade 6)",
+            "52036",
+            "1/6(A-B)",
+            "Smith, John",
+            "john.smith@school.net",
+            "Q2",
+            "Continued growth in problem solving skills.",
+        ),
+        (
+            1,
+            None,
+            "Language Arts (grade 6)",
+            "51034",
+            "2/6(A-B)",
+            "Jones, Mary",
+            "mary.jones@school.net",
+            "Q2",
+            "Reading comprehension has improved significantly.",
+        ),
     ]
 
     for comment in test_comments:
@@ -192,9 +237,7 @@ class TestGetTeacherComments:
 
     def test_filter_by_term_and_course(self, repo):
         """Filtering by both term and course works."""
-        comments = repo.get_teacher_comments(
-            student_id=1, course_name="Language", term="Q1"
-        )
+        comments = repo.get_teacher_comments(student_id=1, course_name="Language", term="Q1")
 
         assert len(comments) == 1
         assert comments[0]["term"] == "Q1"
@@ -205,8 +248,13 @@ class TestGetTeacherComments:
         comments = repo.get_teacher_comments(student_id=1)
 
         required_fields = [
-            "id", "student_id", "student_name", "course_name",
-            "teacher_name", "term", "comment"
+            "id",
+            "student_id",
+            "student_name",
+            "course_name",
+            "teacher_name",
+            "term",
+            "comment",
         ]
 
         assert len(comments) > 0

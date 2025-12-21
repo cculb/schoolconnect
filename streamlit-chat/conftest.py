@@ -356,9 +356,7 @@ def mock_ai_assistant(mock_anthropic_client, mock_ai_responses: dict):
 @pytest.fixture
 def mock_ai_response_missing(mock_ai_responses: dict) -> str:
     """Get mock AI response for missing assignments query."""
-    return mock_ai_responses.get(
-        "missing_assignments", "Student has missing assignments."
-    )
+    return mock_ai_responses.get("missing_assignments", "Student has missing assignments.")
 
 
 @pytest.fixture

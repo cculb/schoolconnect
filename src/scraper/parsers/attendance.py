@@ -267,7 +267,12 @@ def detect_attendance_patterns(records: List[Dict[str, str]]) -> Dict:
     """
     result = {
         "by_day_of_week": {
-            "Monday": {"absence_count": 0, "tardy_count": 0, "present_count": 0, "total_records": 0},
+            "Monday": {
+                "absence_count": 0,
+                "tardy_count": 0,
+                "present_count": 0,
+                "total_records": 0,
+            },
             "Tuesday": {
                 "absence_count": 0,
                 "tardy_count": 0,
@@ -286,14 +291,24 @@ def detect_attendance_patterns(records: List[Dict[str, str]]) -> Dict:
                 "present_count": 0,
                 "total_records": 0,
             },
-            "Friday": {"absence_count": 0, "tardy_count": 0, "present_count": 0, "total_records": 0},
+            "Friday": {
+                "absence_count": 0,
+                "tardy_count": 0,
+                "present_count": 0,
+                "total_records": 0,
+            },
             "Saturday": {
                 "absence_count": 0,
                 "tardy_count": 0,
                 "present_count": 0,
                 "total_records": 0,
             },
-            "Sunday": {"absence_count": 0, "tardy_count": 0, "present_count": 0, "total_records": 0},
+            "Sunday": {
+                "absence_count": 0,
+                "tardy_count": 0,
+                "present_count": 0,
+                "total_records": 0,
+            },
         },
         "longest_absence_streak": 0,
         "total_present": 0,
@@ -400,7 +415,9 @@ def format_patterns_for_display(patterns: Dict) -> str:
     if problem_days:
         lines.append("## Concerning Patterns")
         for day, absences, total, rate in sorted(problem_days, key=lambda x: -x[3]):
-            lines.append(f"- Frequently absent on **{day}**: {absences}/{total} ({rate*100:.0f}%)")
+            lines.append(
+                f"- Frequently absent on **{day}**: {absences}/{total} ({rate * 100:.0f}%)"
+            )
         lines.append("")
 
     return "\n".join(lines)

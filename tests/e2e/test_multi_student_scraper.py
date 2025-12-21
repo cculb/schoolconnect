@@ -337,9 +337,7 @@ class TestMultiStudentIntegration:
                 assert other_student is not None
 
                 # Switch to other student with verbose output for debugging
-                switch_result = switch_to_student(
-                    page, other_student["id"], verbose=True
-                )
+                switch_result = switch_to_student(page, other_student["id"], verbose=True)
                 assert switch_result is True, (
                     f"Switch should succeed. Tried to switch to {other_student}"
                 )
@@ -352,9 +350,7 @@ class TestMultiStudentIntegration:
                 )
 
                 # Switch back to original
-                switch_back = switch_to_student(
-                    page, initial_student["id"], verbose=True
-                )
+                switch_back = switch_to_student(page, initial_student["id"], verbose=True)
                 assert switch_back is True
 
                 final = get_current_student(page)

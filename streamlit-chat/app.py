@@ -40,7 +40,7 @@ from session_manager import (
 
 # Message buffer constants (HIGH-3)
 MAX_MESSAGES_STORED = 50  # Maximum messages to keep in session state
-MAX_MESSAGES_TO_AI = 10   # Maximum messages to send to AI for context
+MAX_MESSAGES_TO_AI = 10  # Maximum messages to send to AI for context
 
 
 def get_contextual_starters(summary: dict) -> list[dict]:
@@ -66,29 +66,29 @@ def get_contextual_starters(summary: dict) -> list[dict]:
     # Context-based starters
     missing = summary.get("missing_assignments", 0)
     if missing > 0:
-        starters.append({
-            "icon": "📋",
-            "text": f"How can we address the {missing} missing assignment{'s' if missing > 1 else ''}?"
-        })
+        starters.append(
+            {
+                "icon": "📋",
+                "text": f"How can we address the {missing} missing assignment{'s' if missing > 1 else ''}?",
+            }
+        )
 
     attendance = summary.get("attendance_rate", 100)
     if attendance < 90:
-        starters.append({
-            "icon": "🏫",
-            "text": f"Attendance is at {attendance}%. Should I be concerned?"
-        })
+        starters.append(
+            {"icon": "🏫", "text": f"Attendance is at {attendance}%. Should I be concerned?"}
+        )
     elif attendance >= 95:
-        starters.append({
-            "icon": "🏫",
-            "text": "Great attendance! How can we maintain it?"
-        })
+        starters.append({"icon": "🏫", "text": "Great attendance! How can we maintain it?"})
 
     days_absent = summary.get("days_absent", 0)
     if days_absent > 3:
-        starters.append({
-            "icon": "📅",
-            "text": f"My child has been absent {days_absent} days. What should I know?"
-        })
+        starters.append(
+            {
+                "icon": "📅",
+                "text": f"My child has been absent {days_absent} days. What should I know?",
+            }
+        )
 
     # Add helpful general starters
     starters.append({"icon": "✉️", "text": "Help me write an email to a teacher"})
@@ -185,10 +185,7 @@ def get_messages_for_ai(messages: list[dict[str, str]]) -> list[dict[str, str]]:
 
 # Page configuration - mobile friendly
 st.set_page_config(
-    page_title="SchoolPulse",
-    page_icon="📚",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    page_title="SchoolPulse", page_icon="📚", layout="wide", initial_sidebar_state="collapsed"
 )
 
 # Load CSS from external file (MED-2)
@@ -235,12 +232,15 @@ def handle_login() -> None:
     HIGH-4: Uses dynamic student selection from auth context instead of
     hardcoded values.
     """
-    st.markdown("""
+    st.markdown(
+        """
     <div class="app-header">
         <h1 class="app-title">📚 SchoolPulse</h1>
         <p class="app-subtitle">Your child's academic progress at a glance</p>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
     result = render_login_page()
 
@@ -351,14 +351,14 @@ def format_quick_response(result: dict) -> str:
             output += "| Course | Teacher | Grade |\n"
             output += "|--------|---------|-------|\n"
             for item in data:
-                grade = item.get('letter_grade') or item.get('percent') or 'N/A'
-                percent = f" ({item['percent']}%)" if item.get('percent') else ""
-                teacher = item.get('teacher_name', 'N/A')
+                grade = item.get("letter_grade") or item.get("percent") or "N/A"
+                percent = f" ({item['percent']}%)" if item.get("percent") else ""
+                teacher = item.get("teacher_name", "N/A")
                 output += f"| {item['course_name']} | {teacher} | **{grade}**{percent} |\n"
 
     elif title == "Attendance Summary":
         if isinstance(data, dict) and "error" not in data:
-            rate = data.get('rate', 0)
+            rate = data.get("rate", 0)
 
             if rate >= 95:
                 bg_color = "#10b981"
@@ -424,8 +424,8 @@ def format_quick_response(result: dict) -> str:
         if isinstance(data, dict) and "error" not in data:
             output += f"### 👨‍🎓 {data.get('name', 'Student')} - Grade {data.get('grade_level', 'N/A')}\n\n"
 
-            missing = data.get('missing_assignments', 0)
-            attendance = data.get('attendance_rate', 0)
+            missing = data.get("missing_assignments", 0)
+            attendance = data.get("attendance_rate", 0)
 
             output += "| Metric | Value |\n"
             output += "|--------|-------|\n"
@@ -470,12 +470,15 @@ def render_main_app() -> None:
     api_key = get_api_key()
 
     # Header
-    st.markdown("""
+    st.markdown(
+        """
     <div class="app-header">
         <h1 class="app-title">📚 SchoolPulse</h1>
         <p class="app-subtitle">Your child's academic progress at a glance</p>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
     # Sidebar for settings
     with st.sidebar:
@@ -498,14 +501,18 @@ def render_main_app() -> None:
 
         # Model selection
         model_options = list(AVAILABLE_MODELS.keys())
-        current_index = model_options.index(st.session_state.model) if st.session_state.model in model_options else 0
+        current_index = (
+            model_options.index(st.session_state.model)
+            if st.session_state.model in model_options
+            else 0
+        )
 
         selected_model = st.selectbox(
             "AI Model",
             options=model_options,
             format_func=lambda x: AVAILABLE_MODELS[x],
             index=current_index,
-            help="Select the Claude model to use"
+            help="Select the Claude model to use",
         )
         if selected_model != st.session_state.model:
             st.session_state.model = selected_model
@@ -518,8 +525,10 @@ def render_main_app() -> None:
             student_input = st.selectbox(
                 "Select Student",
                 options=allowed_students,
-                index=allowed_students.index(st.session_state.student_name) if st.session_state.student_name in allowed_students else 0,
-                help="Select which student to view"
+                index=allowed_students.index(st.session_state.student_name)
+                if st.session_state.student_name in allowed_students
+                else 0,
+                help="Select which student to view",
             )
             if student_input != st.session_state.student_name:
                 # Verify access (FERPA authorization)
@@ -561,41 +570,65 @@ def render_main_app() -> None:
             col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                st.markdown(f"""
+                st.markdown(
+                    f"""
                 <div class="metric-card">
                     <div class="metric-label">📚 Courses</div>
-                    <div class="metric-value">{summary.get('course_count', 0)}</div>
+                    <div class="metric-value">{summary.get("course_count", 0)}</div>
                 </div>
-                """, unsafe_allow_html=True)
+                """,
+                    unsafe_allow_html=True,
+                )
 
             with col2:
-                missing = summary.get('missing_assignments', 0)
-                badge_class = "badge-success" if missing == 0 else "badge-warning" if missing < 3 else "badge-danger"
-                st.markdown(f"""
+                missing = summary.get("missing_assignments", 0)
+                badge_class = (
+                    "badge-success"
+                    if missing == 0
+                    else "badge-warning"
+                    if missing < 3
+                    else "badge-danger"
+                )
+                st.markdown(
+                    f"""
                 <div class="metric-card">
                     <div class="metric-label">📝 Missing Work</div>
                     <div class="metric-value"><span class="badge {badge_class}">{missing}</span></div>
                 </div>
-                """, unsafe_allow_html=True)
+                """,
+                    unsafe_allow_html=True,
+                )
 
             with col3:
-                attendance_rate = summary.get('attendance_rate', 0)
-                badge_class = "badge-success" if attendance_rate >= 95 else "badge-warning" if attendance_rate >= 90 else "badge-danger"
-                st.markdown(f"""
+                attendance_rate = summary.get("attendance_rate", 0)
+                badge_class = (
+                    "badge-success"
+                    if attendance_rate >= 95
+                    else "badge-warning"
+                    if attendance_rate >= 90
+                    else "badge-danger"
+                )
+                st.markdown(
+                    f"""
                 <div class="metric-card">
                     <div class="metric-label">🏫 Attendance</div>
                     <div class="metric-value"><span class="badge {badge_class}">{attendance_rate}%</span></div>
                 </div>
-                """, unsafe_allow_html=True)
+                """,
+                    unsafe_allow_html=True,
+                )
 
             with col4:
-                days_absent = summary.get('days_absent', 0)
-                st.markdown(f"""
+                days_absent = summary.get("days_absent", 0)
+                st.markdown(
+                    f"""
                 <div class="metric-card">
                     <div class="metric-label">📅 Days Absent</div>
                     <div class="metric-value">{days_absent}</div>
                 </div>
-                """, unsafe_allow_html=True)
+                """,
+                    unsafe_allow_html=True,
+                )
 
             st.markdown("<br>", unsafe_allow_html=True)
     except Exception:
@@ -665,9 +698,7 @@ def render_main_app() -> None:
     # Chat input (HIGH-3: uses message buffer)
     if prompt := st.chat_input("💭 Ask about your child's progress..."):
         # Add user message to buffer
-        st.session_state.messages = add_message_to_buffer(
-            st.session_state.messages, "user", prompt
-        )
+        st.session_state.messages = add_message_to_buffer(st.session_state.messages, "user", prompt)
 
         # Display user message
         with st.chat_message("user"):
@@ -677,7 +708,9 @@ def render_main_app() -> None:
         with st.chat_message("assistant"):
             with st.spinner("🔍 Looking up..."):
                 if not api_key:
-                    response = "⚠️ Please configure your Anthropic API key in secrets or environment."
+                    response = (
+                        "⚠️ Please configure your Anthropic API key in secrets or environment."
+                    )
                 else:
                     # Get limited message history for AI context
                     messages_for_ai = get_messages_for_ai(
@@ -688,7 +721,7 @@ def render_main_app() -> None:
                         {"student_name": st.session_state.student_name},
                         messages_for_ai,
                         api_key,
-                        st.session_state.model
+                        st.session_state.model,
                     )
             st.markdown(response)
 
@@ -705,14 +738,17 @@ def render_main_app() -> None:
             summary = get_cached_student_summary(db_path, st.session_state.student_name)
 
             if "error" not in summary:
-                attendance_rate = summary.get('attendance_rate', 0)
-                missing = summary.get('missing_assignments', 0)
+                attendance_rate = summary.get("attendance_rate", 0)
+                missing = summary.get("missing_assignments", 0)
 
                 # Status emojis
-                attendance_emoji = "✅" if attendance_rate >= 95 else "⚠️" if attendance_rate >= 90 else "🔴"
+                attendance_emoji = (
+                    "✅" if attendance_rate >= 95 else "⚠️" if attendance_rate >= 90 else "🔴"
+                )
                 missing_emoji = "✅" if missing == 0 else "⚠️" if missing < 3 else "🔴"
 
-                st.markdown(f"""
+                st.markdown(
+                    f"""
                 <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
                             padding: 2rem;
                             border-radius: 15px;
@@ -720,12 +756,12 @@ def render_main_app() -> None:
                             box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
                     <h3 style="color: #667eea; margin-top: 0;">👋 Welcome to SchoolPulse!</h3>
                     <p style="font-size: 1.1rem; margin-bottom: 1.5rem;">
-                        Here's a quick overview for <strong>{summary.get('name', 'your student')}</strong>:
+                        Here's a quick overview for <strong>{summary.get("name", "your student")}</strong>:
                     </p>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
                         <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
                             <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">📚 Courses</div>
-                            <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{summary.get('course_count', 0)}</div>
+                            <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{summary.get("course_count", 0)}</div>
                         </div>
                         <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
                             <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">📝 Missing Work</div>
@@ -740,7 +776,9 @@ def render_main_app() -> None:
                         💡 <strong>Tip:</strong> Use the quick action buttons above or try the conversation starters below!
                     </p>
                 </div>
-                """, unsafe_allow_html=True)
+                """,
+                    unsafe_allow_html=True,
+                )
 
                 # Show context-based conversation starters
                 st.markdown("**💭 Try asking:**")
@@ -755,35 +793,32 @@ def render_main_app() -> None:
                             with col:
                                 if st.button(
                                     f"{starter['icon']} {starter['text']}",
-                                    key=f"starter_{i+j}",
-                                    use_container_width=True
+                                    key=f"starter_{i + j}",
+                                    use_container_width=True,
                                 ):
                                     # Add user message to buffer (HIGH-3)
                                     st.session_state.messages = add_message_to_buffer(
-                                        st.session_state.messages,
-                                        "user",
-                                        starter['text']
+                                        st.session_state.messages, "user", starter["text"]
                                     )
                                     # Get AI response
                                     if api_key:
                                         response = get_ai_response(
-                                            starter['text'],
+                                            starter["text"],
                                             {"student_name": st.session_state.student_name},
                                             [],  # No history for first message
                                             api_key,
-                                            st.session_state.model
+                                            st.session_state.model,
                                         )
                                     else:
                                         response = "Please configure your Anthropic API key in secrets or environment."
                                     # Add response to buffer (HIGH-3)
                                     st.session_state.messages = add_message_to_buffer(
-                                        st.session_state.messages,
-                                        "assistant",
-                                        response
+                                        st.session_state.messages, "assistant", response
                                     )
                                     st.rerun()
             else:
-                st.markdown("""
+                st.markdown(
+                    """
                 <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
                             padding: 2rem;
                             border-radius: 15px;
@@ -797,9 +832,12 @@ def render_main_app() -> None:
                         💡 Use the quick action buttons above or ask me about your child's progress!
                     </p>
                 </div>
-                """, unsafe_allow_html=True)
+                """,
+                    unsafe_allow_html=True,
+                )
         except Exception:
-            st.markdown("""
+            st.markdown(
+                """
             <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
                         padding: 2rem;
                         border-radius: 15px;
@@ -813,7 +851,9 @@ def render_main_app() -> None:
                     💡 Use the quick action buttons above or ask me about your child's progress!
                 </p>
             </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
 
 # Main entry point

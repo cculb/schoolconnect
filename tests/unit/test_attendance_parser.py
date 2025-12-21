@@ -4,7 +4,6 @@ These tests use static HTML fixtures and don't require
 external dependencies or network access.
 """
 
-
 import pytest
 
 pytestmark = pytest.mark.unit

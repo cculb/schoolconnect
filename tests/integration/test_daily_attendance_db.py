@@ -49,13 +49,13 @@ def test_db(tmp_path: Path) -> Generator[Path, None, None]:
         # Week 1: Dec 2-6, 2024
         (1, "2024-12-02", "Present", ".", ""),  # Monday
         (1, "2024-12-03", "Present", ".", ""),  # Tuesday
-        (1, "2024-12-04", "Absent", "A", ""),   # Wednesday
+        (1, "2024-12-04", "Absent", "A", ""),  # Wednesday
         (1, "2024-12-05", "Present", ".", ""),  # Thursday
-        (1, "2024-12-06", "Tardy", "T", ""),    # Friday
+        (1, "2024-12-06", "Tardy", "T", ""),  # Friday
         # Week 2: Dec 9-13, 2024
         (1, "2024-12-09", "Present", ".", ""),  # Monday
         (1, "2024-12-10", "Excused", "E", ""),  # Tuesday
-        (1, "2024-12-11", "Absent", "A", ""),   # Wednesday
+        (1, "2024-12-11", "Absent", "A", ""),  # Wednesday
         (1, "2024-12-12", "Present", ".", ""),  # Thursday
         (1, "2024-12-13", "Present", ".", ""),  # Friday
     ]
@@ -262,8 +262,8 @@ class TestGetWeeklyAttendance:
         week1 = next((w for w in weekly if "2024-12-02" in str(w.get("week_start", ""))), None)
         if week1:
             assert week1["days_present"] == 3  # M, T, Th
-            assert week1["days_absent"] == 1   # W
-            assert week1["tardies"] == 1       # F
+            assert week1["days_absent"] == 1  # W
+            assert week1["tardies"] == 1  # F
 
 
 class TestGetAttendanceStreak:

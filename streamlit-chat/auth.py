@@ -107,9 +107,7 @@ def can_access_student(parent_id: str, student_name: str) -> bool:
     """
     allowed_students = get_allowed_students(parent_id)
     # Case-insensitive comparison
-    return any(
-        student.lower() == student_name.lower() for student in allowed_students
-    )
+    return any(student.lower() == student_name.lower() for student in allowed_students)
 
 
 def authenticate(username: str, password: str) -> Optional[dict]:

@@ -197,13 +197,9 @@ class TestSessionManager:
 
         # Mock time passing beyond timeout
         with patch("session_manager.datetime") as mock_datetime:
-            future_time = datetime.now() + timedelta(
-                minutes=SESSION_TIMEOUT_MINUTES + 1
-            )
+            future_time = datetime.now() + timedelta(minutes=SESSION_TIMEOUT_MINUTES + 1)
             mock_datetime.now.return_value = future_time
-            mock_datetime.side_effect = lambda *args, **kwargs: datetime(
-                *args, **kwargs
-            )
+            mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
 
             session = validate_session(token)
             assert session is None
@@ -294,9 +290,7 @@ class TestSessionWarning:
                 minutes=SESSION_TIMEOUT_MINUTES - WARNING_THRESHOLD_MINUTES + 1
             )
             mock_datetime.now.return_value = near_expiry
-            mock_datetime.side_effect = lambda *args, **kwargs: datetime(
-                *args, **kwargs
-            )
+            mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
 
             # Note: This test may need adjustment based on implementation
             # The key is that warning appears when < WARNING_THRESHOLD_MINUTES remain
@@ -441,11 +435,7 @@ class TestSecurityHardening:
 
         # Messages should be identical or generic
         # This prevents username enumeration attacks
-        assert (
-            msg1 == msg2
-            or "incorrect" in msg1.lower()
-            or "invalid" in msg1.lower()
-        )
+        assert msg1 == msg2 or "incorrect" in msg1.lower() or "invalid" in msg1.lower()
 
 
 if __name__ == "__main__":

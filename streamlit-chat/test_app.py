@@ -69,14 +69,12 @@ class TestQueryFunctions:
         from data_queries import get_missing_assignments
 
         student_name = primary_student.get("first_name", "TestStudent")
-        expected_count = expected_values.get("primary_student", {}).get(
-            "missing_count", 0
-        )
+        expected_count = expected_values.get("primary_student", {}).get("missing_count", 0)
 
         missing = get_missing_assignments(test_db_path, student_name)
-        assert (
-            len(missing) == expected_count
-        ), f"Expected {expected_count} missing assignments, got {len(missing)}"
+        assert len(missing) == expected_count, (
+            f"Expected {expected_count} missing assignments, got {len(missing)}"
+        )
 
     def test_missing_assignment_names(
         self, test_db_path: str, primary_student: dict, expected_values: dict
@@ -91,9 +89,9 @@ class TestQueryFunctions:
         actual_names = [a["assignment_name"] for a in missing]
 
         for expected in expected_names:
-            assert any(
-                expected in name for name in actual_names
-            ), f"Expected '{expected}' in missing assignments, got {actual_names}"
+            assert any(expected in name for name in actual_names), (
+                f"Expected '{expected}' in missing assignments, got {actual_names}"
+            )
 
     def test_attendance_rate_in_range(
         self, test_db_path: str, primary_student: dict, expected_values: dict
@@ -102,22 +100,18 @@ class TestQueryFunctions:
         from data_queries import get_attendance_summary
 
         student_name = primary_student.get("first_name", "TestStudent")
-        expected_rate = expected_values.get("primary_student", {}).get(
-            "attendance_rate", 88.6
-        )
+        expected_rate = expected_values.get("primary_student", {}).get("attendance_rate", 88.6)
 
         attendance = get_attendance_summary(test_db_path, student_name)
         assert "error" not in attendance, f"Error getting attendance: {attendance}"
 
         rate = attendance.get("rate", 0)
         # Allow small tolerance for floating point
-        assert (
-            abs(rate - expected_rate) < 1.0
-        ), f"Attendance rate {rate}% doesn't match expected {expected_rate}%"
+        assert abs(rate - expected_rate) < 1.0, (
+            f"Attendance rate {rate}% doesn't match expected {expected_rate}%"
+        )
 
-    def test_current_grades_returns_data(
-        self, test_db_path: str, primary_student: dict
-    ):
+    def test_current_grades_returns_data(self, test_db_path: str, primary_student: dict):
         """Current grades returns list of courses with grades."""
         from data_queries import get_current_grades
 
@@ -125,9 +119,7 @@ class TestQueryFunctions:
         grades = get_current_grades(test_db_path, student_name)
         assert len(grades) > 0, "Expected at least one grade"
 
-    def test_student_summary_has_required_fields(
-        self, test_db_path: str, primary_student: dict
-    ):
+    def test_student_summary_has_required_fields(self, test_db_path: str, primary_student: dict):
         """Student summary has all required fields."""
         from data_queries import get_student_summary
 
@@ -145,21 +137,17 @@ class TestQueryFunctions:
         for field in required_fields:
             assert field in summary, f"Missing field: {field}"
 
-    def test_courses_count(
-        self, test_db_path: str, primary_student: dict, expected_values: dict
-    ):
+    def test_courses_count(self, test_db_path: str, primary_student: dict, expected_values: dict):
         """Student has expected number of courses from fixtures."""
         from data_queries import get_all_courses
 
         student_name = primary_student.get("first_name", "TestStudent")
-        expected_count = expected_values.get("primary_student", {}).get(
-            "course_count", 1
-        )
+        expected_count = expected_values.get("primary_student", {}).get("course_count", 1)
 
         courses = get_all_courses(test_db_path, student_name)
-        assert (
-            len(courses) >= expected_count
-        ), f"Expected at least {expected_count} courses, got {len(courses)}"
+        assert len(courses) >= expected_count, (
+            f"Expected at least {expected_count} courses, got {len(courses)}"
+        )
 
 
 # =============================================================================
@@ -224,9 +212,7 @@ class TestQuickResponses:
 
             assert "error" not in result, f"Error: {result}"
 
-    def test_quick_invalid_type_returns_error(
-        self, test_db_path: str, primary_student: dict
-    ):
+    def test_quick_invalid_type_returns_error(self, test_db_path: str, primary_student: dict):
         """Quick response for invalid type returns error."""
         from ai_assistant import get_quick_response
 
@@ -313,9 +299,7 @@ class TestAIAssistant:
                 assert response is not None
                 assert len(response) > 0
 
-    def test_ai_response_handles_tool_use(
-        self, test_db_path: str, primary_student: dict
-    ):
+    def test_ai_response_handles_tool_use(self, test_db_path: str, primary_student: dict):
         """AI response handles tool use correctly."""
         from ai_assistant import get_ai_response
 
@@ -429,9 +413,7 @@ class TestErrorHandling:
 class TestErrorHandlingParameterized:
     """Parameterized error handling tests."""
 
-    def test_invalid_student_names(
-        self, test_db_path: str, invalid_student_names: str
-    ):
+    def test_invalid_student_names(self, test_db_path: str, invalid_student_names: str):
         """Various invalid student names are handled gracefully."""
         from data_queries import get_student_id
 
@@ -447,9 +429,7 @@ class TestErrorHandlingParameterized:
 class TestToolExecution:
     """Test the execute_tool function."""
 
-    def test_execute_get_missing_assignments(
-        self, test_db_path: str, primary_student: dict
-    ):
+    def test_execute_get_missing_assignments(self, test_db_path: str, primary_student: dict):
         """Execute get_missing_assignments tool."""
         from ai_assistant import execute_tool
 
@@ -459,9 +439,7 @@ class TestToolExecution:
             result = execute_tool("get_missing_assignments", {}, student_name)
             assert isinstance(result, list)
 
-    def test_execute_get_current_grades(
-        self, test_db_path: str, primary_student: dict
-    ):
+    def test_execute_get_current_grades(self, test_db_path: str, primary_student: dict):
         """Execute get_current_grades tool."""
         from ai_assistant import execute_tool
 
@@ -471,9 +449,7 @@ class TestToolExecution:
             result = execute_tool("get_current_grades", {}, student_name)
             assert isinstance(result, list)
 
-    def test_execute_get_attendance_summary(
-        self, test_db_path: str, primary_student: dict
-    ):
+    def test_execute_get_attendance_summary(self, test_db_path: str, primary_student: dict):
         """Execute get_attendance_summary tool."""
         from ai_assistant import execute_tool
 
@@ -483,9 +459,7 @@ class TestToolExecution:
             result = execute_tool("get_attendance_summary", {}, student_name)
             assert isinstance(result, dict)
 
-    def test_execute_get_student_summary(
-        self, test_db_path: str, primary_student: dict
-    ):
+    def test_execute_get_student_summary(self, test_db_path: str, primary_student: dict):
         """Execute get_student_summary tool."""
         from ai_assistant import execute_tool
 
@@ -496,32 +470,24 @@ class TestToolExecution:
             assert isinstance(result, dict)
             assert "name" in result or "error" in result
 
-    def test_execute_get_upcoming_assignments(
-        self, test_db_path: str, primary_student: dict
-    ):
+    def test_execute_get_upcoming_assignments(self, test_db_path: str, primary_student: dict):
         """Execute get_upcoming_assignments tool with days parameter."""
         from ai_assistant import execute_tool
 
         student_name = primary_student.get("first_name", "TestStudent")
 
         with patch("ai_assistant.get_db_path", return_value=test_db_path):
-            result = execute_tool(
-                "get_upcoming_assignments", {"days": 14}, student_name
-            )
+            result = execute_tool("get_upcoming_assignments", {"days": 14}, student_name)
             assert isinstance(result, list)
 
-    def test_execute_get_course_details(
-        self, test_db_path: str, primary_student: dict
-    ):
+    def test_execute_get_course_details(self, test_db_path: str, primary_student: dict):
         """Execute get_course_details tool with course_name parameter."""
         from ai_assistant import execute_tool
 
         student_name = primary_student.get("first_name", "TestStudent")
 
         with patch("ai_assistant.get_db_path", return_value=test_db_path):
-            result = execute_tool(
-                "get_course_details", {"course_name": "Math"}, student_name
-            )
+            result = execute_tool("get_course_details", {"course_name": "Math"}, student_name)
             assert isinstance(result, dict)
 
     def test_execute_get_all_courses(self, test_db_path: str, primary_student: dict):
@@ -534,9 +500,7 @@ class TestToolExecution:
             result = execute_tool("get_all_courses", {}, student_name)
             assert isinstance(result, list)
 
-    def test_execute_get_assignment_stats(
-        self, test_db_path: str, primary_student: dict
-    ):
+    def test_execute_get_assignment_stats(self, test_db_path: str, primary_student: dict):
         """Execute get_assignment_stats tool."""
         from ai_assistant import execute_tool
 

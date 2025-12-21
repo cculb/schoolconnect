@@ -574,9 +574,7 @@ class Repository:
             )
             return int(cursor.fetchone()["id"])
 
-    def bulk_upsert_attendance_records(
-        self, student_id: int, records: List[Dict[str, str]]
-    ) -> int:
+    def bulk_upsert_attendance_records(self, student_id: int, records: List[Dict[str, str]]) -> int:
         """Bulk insert or update attendance records for a student.
 
         Args:
@@ -660,9 +658,7 @@ class Repository:
             )
             return [dict(row) for row in cursor.fetchall()]
 
-    def get_weekly_attendance(
-        self, student_id: int, weeks: int = 12
-    ) -> List[Dict]:
+    def get_weekly_attendance(self, student_id: int, weeks: int = 12) -> List[Dict]:
         """Get weekly attendance summaries for a student.
 
         Args:
@@ -1642,9 +1638,7 @@ class Repository:
                 "assignments": assignments,
             }
 
-    def get_course_score_details_by_name(
-        self, student_id: int, course_name: str
-    ) -> Optional[Dict]:
+    def get_course_score_details_by_name(self, student_id: int, course_name: str) -> Optional[Dict]:
         """Get course score details by course name.
 
         Args:

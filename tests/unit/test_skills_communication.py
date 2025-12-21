@@ -64,15 +64,14 @@ class TestTeacherMeetingPrepSkill:
         """Test description is relevant to teacher meetings."""
         desc = frontmatter["description"].lower()
         assert any(
-            keyword in desc
-            for keyword in ["meeting", "teacher", "conference", "talking points"]
+            keyword in desc for keyword in ["meeting", "teacher", "conference", "talking points"]
         ), "Description should mention meeting/teacher/conference/talking points"
 
     def test_references_mcp_tool(self, skill_content: str):
         """Test skill references prepare_teacher_meeting MCP tool."""
-        assert (
-            "prepare_teacher_meeting" in skill_content
-        ), "Should reference prepare_teacher_meeting MCP tool"
+        assert "prepare_teacher_meeting" in skill_content, (
+            "Should reference prepare_teacher_meeting MCP tool"
+        )
 
     def test_markdown_structure(self, skill_content: str):
         """Test markdown has proper structure."""
@@ -127,9 +126,9 @@ class TestDraftTeacherEmailSkill:
 
     def test_references_mcp_tool(self, skill_content: str):
         """Test skill references draft_teacher_email MCP tool."""
-        assert (
-            "draft_teacher_email" in skill_content
-        ), "Should reference draft_teacher_email MCP tool"
+        assert "draft_teacher_email" in skill_content, (
+            "Should reference draft_teacher_email MCP tool"
+        )
 
     def test_email_topics_coverage(self, skill_content: str):
         """Test skill covers all email topics."""
@@ -201,9 +200,9 @@ class TestCommunicationSuggestionsSkill:
 
     def test_references_mcp_tool(self, skill_content: str):
         """Test skill references get_communication_suggestions MCP tool."""
-        assert (
-            "get_communication_suggestions" in skill_content
-        ), "Should reference get_communication_suggestions MCP tool"
+        assert "get_communication_suggestions" in skill_content, (
+            "Should reference get_communication_suggestions MCP tool"
+        )
 
     def test_data_driven_approach(self, skill_content: str):
         """Test skill emphasizes data-driven suggestions."""
@@ -275,9 +274,9 @@ class TestMCPToolReferences:
                     tool.endswith(suffix)
                     for suffix in ["_meeting", "_email", "_suggestions", "_comments", "_teachers"]
                 ):
-                    assert (
-                        tool in MCP_TOOLS
-                    ), f"Invalid MCP tool '{tool}' referenced in {skill_name}"
+                    assert tool in MCP_TOOLS, (
+                        f"Invalid MCP tool '{tool}' referenced in {skill_name}"
+                    )
 
     def test_no_hardcoded_data(self, all_skills_content: dict[str, str]):
         """Test skills don't contain hardcoded student/teacher data."""
@@ -287,9 +286,9 @@ class TestMCPToolReferences:
             content_cleaned = re.sub(r"```.*?```", "", content_cleaned, flags=re.DOTALL)
 
             # Should not have specific student names (common test names)
-            assert not re.search(
-                r"\b(John|Jane|Alice|Bob|Charlie)\s+\w+", content_cleaned
-            ), f"Should not contain hardcoded student names in {skill_name}"
+            assert not re.search(r"\b(John|Jane|Alice|Bob|Charlie)\s+\w+", content_cleaned), (
+                f"Should not contain hardcoded student names in {skill_name}"
+            )
 
 
 class TestProfessionalToneValidation:
@@ -329,9 +328,9 @@ class TestProfessionalToneValidation:
             # Note: "hey" might appear in the "don'ts" section, which is fine
             casual_greetings = ["hey there", "what's up", "yo ", "sup "]
             for term in casual_greetings:
-                assert (
-                    term not in example_content
-                ), f"Email examples should avoid casual greeting '{term}'"
+                assert term not in example_content, (
+                    f"Email examples should avoid casual greeting '{term}'"
+                )
 
     def test_respectful_tone_keywords(self, email_skill_content: str):
         """Test email examples include respectful language."""
@@ -346,9 +345,9 @@ class TestProfessionalToneValidation:
             "understand",
         ]
         found_phrases = sum(1 for phrase in respectful_phrases if phrase in content_lower)
-        assert (
-            found_phrases >= 3
-        ), f"Should include at least 3 respectful phrases, found {found_phrases}"
+        assert found_phrases >= 3, (
+            f"Should include at least 3 respectful phrases, found {found_phrases}"
+        )
 
 
 class TestSkillUsabilityAndQuality:
@@ -389,16 +388,14 @@ class TestSkillUsabilityAndQuality:
             for skill2 in skills_list[i + 1 :]:
                 # Skills should not be 90%+ identical
                 common_chars = sum(
-                    1
-                    for c1, c2 in zip(contents[skill1], contents[skill2])
-                    if c1 == c2
+                    1 for c1, c2 in zip(contents[skill1], contents[skill2]) if c1 == c2
                 )
                 min_length = min(len(contents[skill1]), len(contents[skill2]))
                 similarity = common_chars / min_length if min_length > 0 else 0
 
-                assert (
-                    similarity < 0.9
-                ), f"Skills {skill1} and {skill2} are too similar ({similarity:.1%})"
+                assert similarity < 0.9, (
+                    f"Skills {skill1} and {skill2} are too similar ({similarity:.1%})"
+                )
 
     def test_no_placeholder_text(self, all_skills: dict[str, Path]):
         """Test skills don't contain placeholder text."""
@@ -407,9 +404,9 @@ class TestSkillUsabilityAndQuality:
         for name, path in all_skills.items():
             content = path.read_text()
             for placeholder in placeholders:
-                assert (
-                    placeholder not in content
-                ), f"Skill {name} contains placeholder text: {placeholder}"
+                assert placeholder not in content, (
+                    f"Skill {name} contains placeholder text: {placeholder}"
+                )
 
     def test_consistent_formatting(self, all_skills: dict[str, Path]):
         """Test all skills use consistent markdown formatting."""
@@ -420,6 +417,6 @@ class TestSkillUsabilityAndQuality:
             assert content.startswith("---\n"), f"Skill {name} should start with YAML frontmatter"
 
             # All skills should have at least one heading
-            assert re.search(
-                r"^#+\s+", content, re.MULTILINE
-            ), f"Skill {name} should have at least one heading"
+            assert re.search(r"^#+\s+", content, re.MULTILINE), (
+                f"Skill {name} should have at least one heading"
+            )
