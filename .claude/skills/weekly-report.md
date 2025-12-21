@@ -1,8 +1,8 @@
 ---
 name: weekly-report
 description: Generate a comprehensive weekly report for a student including grades, attendance, missing work, and actionable recommendations
-whenToUse: User asks for a weekly summary, weekly report, or comprehensive overview. Triggered by phrases like "weekly report", "this week's summary", "how did [student] do this week", or "weekly update".
-tags: [student-data, schoolconnect, analytics, reports]
+whenToUse: User asks for a weekly report, summary, or overview of recent performance. Triggered by phrases like "weekly report", "this week's summary", "weekly update", or "how was this week".
+tags: [student-data, schoolconnect, analytics]
 ---
 
 # Weekly Student Report

@@ -1,8 +1,8 @@
 ---
 name: teacher-meeting-prep
 description: Prepare talking points and questions for parent-teacher meetings or conferences
-whenToUse: User has an upcoming parent-teacher meeting or conference and needs preparation. Triggered by phrases like "prepare for meeting", "parent-teacher conference", "meeting with [teacher]", or "get ready for conference".
-tags: [student-data, schoolconnect, communication]
+whenToUse: User is preparing for a conference, meeting, or discussion with teacher. Triggered by phrases like "meeting with teacher", "parent-teacher conference", "prepare for meeting", or "talking points".
+tags: [communication, schoolconnect]
 ---
 
 # Teacher Meeting Preparation
