@@ -250,7 +250,9 @@ class TestErrorCategorization:
 
         result = categorize_error(error)
         assert isinstance(result, ServerAPIError)
-        assert "unavailable" in result.user_message.lower() or "service" in result.user_message.lower()
+        assert (
+            "unavailable" in result.user_message.lower() or "service" in result.user_message.lower()
+        )
 
     def test_categorize_client_error(self):
         """Client errors should be categorized correctly."""
@@ -292,7 +294,9 @@ class TestUserFriendlyErrorMessages:
         )
 
         # Should contain user-friendly message
-        assert "demand" in result.lower() or "busy" in result.lower() or "try again" in result.lower()
+        assert (
+            "demand" in result.lower() or "busy" in result.lower() or "try again" in result.lower()
+        )
 
     @patch("ai_assistant.Anthropic")
     def test_server_error_shows_friendly_message(self, mock_anthropic_class):
@@ -318,4 +322,8 @@ class TestUserFriendlyErrorMessages:
         )
 
         # Should contain user-friendly message about service
-        assert "unavailable" in result.lower() or "service" in result.lower() or "temporarily" in result.lower()
+        assert (
+            "unavailable" in result.lower()
+            or "service" in result.lower()
+            or "temporarily" in result.lower()
+        )
