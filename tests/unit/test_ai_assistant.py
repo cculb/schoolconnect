@@ -9,6 +9,7 @@ STREAMLIT_CHAT_DIR = Path(__file__).parent.parent.parent / "streamlit-chat"
 sys.path.insert(0, str(STREAMLIT_CHAT_DIR))
 
 # ruff: noqa: E402
+import pytest  # noqa: E402
 from ai_assistant import (  # noqa: E402
     ClientAPIError,
     RateLimitAPIError,
@@ -24,8 +25,6 @@ from anthropic import (  # noqa: E402
     RateLimitError,
 )
 from httpx import Request, Response  # noqa: E402
-
-import pytest  # noqa: E402
 
 pytestmark = pytest.mark.unit
 
