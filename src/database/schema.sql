@@ -5,9 +5,12 @@
 DROP TABLE IF EXISTS communication_templates;
 DROP TABLE IF EXISTS communications;
 DROP TABLE IF EXISTS teachers;
+DROP TABLE IF EXISTS teacher_comments;
 DROP TABLE IF EXISTS scrape_history;
 DROP TABLE IF EXISTS attendance_records;
 DROP TABLE IF EXISTS attendance_summary;
+DROP TABLE IF EXISTS assignment_details;
+DROP TABLE IF EXISTS course_categories;
 DROP TABLE IF EXISTS assignments;
 DROP TABLE IF EXISTS grades;
 DROP TABLE IF EXISTS courses;
@@ -82,6 +85,33 @@ CREATE TABLE assignments (
     FOREIGN KEY (student_id) REFERENCES students(id)
 );
 
+-- Course categories (for weighted grading)
+CREATE TABLE IF NOT EXISTS course_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id INTEGER NOT NULL,
+    category_name TEXT NOT NULL,
+    weight REAL,                            -- percentage weight (0-100)
+    points_earned REAL,                     -- total points earned in category
+    points_possible REAL,                   -- total points possible in category
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES courses(id),
+    UNIQUE(course_id, category_name)
+);
+CREATE INDEX IF NOT EXISTS idx_course_categories_course ON course_categories(course_id);
+
+-- Assignment details (extended info from score detail pages)
+CREATE TABLE IF NOT EXISTS assignment_details (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    assignment_id INTEGER NOT NULL,
+    description TEXT,                       -- assignment description
+    standards TEXT,                         -- JSON array of standards (e.g., ["6.NS.1", "6.NS.2"])
+    comments TEXT,                          -- teacher comments
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (assignment_id) REFERENCES assignments(id),
+    UNIQUE(assignment_id)
+);
+CREATE INDEX IF NOT EXISTS idx_assignment_details_assignment ON assignment_details(assignment_id);
+
 -- Attendance records (daily)
 CREATE TABLE attendance_records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,6 +140,28 @@ CREATE TABLE attendance_summary (
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES students(id)
 );
+
+-- Teacher comments table (from /guardian/teachercomments.html)
+-- Stores teacher comments by course and term
+CREATE TABLE IF NOT EXISTS teacher_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id INTEGER NOT NULL,
+    course_id INTEGER,                       -- Optional link to courses table
+    course_name TEXT NOT NULL,               -- Course name from comments page
+    course_number TEXT,                      -- Course number (e.g., "54436")
+    expression TEXT,                         -- Period/block (e.g., "1/6(A-B)")
+    teacher_name TEXT,
+    teacher_email TEXT,
+    term TEXT NOT NULL,                      -- Q1, Q2, Q3, Q4, S1, S2
+    comment TEXT NOT NULL,                   -- The actual teacher comment
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id),
+    FOREIGN KEY (course_id) REFERENCES courses(id),
+    UNIQUE(student_id, course_name, term, comment)
+);
+CREATE INDEX IF NOT EXISTS idx_teacher_comments_student ON teacher_comments(student_id);
+CREATE INDEX IF NOT EXISTS idx_teacher_comments_term ON teacher_comments(term);
+CREATE INDEX IF NOT EXISTS idx_teacher_comments_course ON teacher_comments(course_name);
 
 -- Teachers table (for profiles and communication tracking)
 CREATE TABLE teachers (

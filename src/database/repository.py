@@ -529,6 +529,247 @@ class Repository:
             cursor = conn.execute("SELECT * FROM v_attendance_alerts")
             return [dict(row) for row in cursor.fetchall()]
 
+    # ==================== DAILY ATTENDANCE ====================
+
+    def upsert_attendance_record(
+        self,
+        student_id: int,
+        date: str,
+        status: str,
+        code: Optional[str] = None,
+        period: Optional[str] = None,
+    ) -> int:
+        """Insert or update a daily attendance record.
+
+        Uses UPSERT based on (student_id, date, period) unique constraint.
+        Note: Uses empty string for NULL period to ensure proper conflict detection
+        since SQLite treats NULL values as distinct in unique constraints.
+
+        Args:
+            student_id: The student's database ID.
+            date: Date in YYYY-MM-DD format.
+            status: Attendance status (Present, Absent, Tardy, Excused).
+            code: Original attendance code from PowerSchool.
+            period: Period/class if applicable.
+
+        Returns:
+            The database ID of the inserted or updated record.
+        """
+        # Use empty string for None period to allow proper UPSERT behavior
+        # SQLite treats NULL as distinct in unique constraints
+        period_value = period if period is not None else ""
+
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO attendance_records (student_id, date, status, code, period, recorded_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(student_id, date, period) DO UPDATE SET
+                    status = excluded.status,
+                    code = COALESCE(excluded.code, code),
+                    recorded_at = CURRENT_TIMESTAMP
+                RETURNING id
+                """,
+                (student_id, date, status, code, period_value),
+            )
+            return int(cursor.fetchone()["id"])
+
+    def bulk_upsert_attendance_records(
+        self, student_id: int, records: List[Dict[str, str]]
+    ) -> int:
+        """Bulk insert or update attendance records for a student.
+
+        Args:
+            student_id: The student's database ID.
+            records: List of dicts with keys: date, status, code, period (optional).
+
+        Returns:
+            Number of records processed.
+        """
+        count = 0
+        for record in records:
+            self.upsert_attendance_record(
+                student_id=student_id,
+                date=record.get("date", ""),
+                status=record.get("status", "Unknown"),
+                code=record.get("code"),
+                period=record.get("period"),
+            )
+            count += 1
+        return count
+
+    def get_daily_attendance(
+        self,
+        student_id: int,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict]:
+        """Get daily attendance records for a student.
+
+        Args:
+            student_id: The student's database ID.
+            start_date: Optional start date filter (YYYY-MM-DD).
+            end_date: Optional end date filter (YYYY-MM-DD).
+            limit: Maximum number of records to return.
+
+        Returns:
+            List of attendance record dictionaries, ordered by date descending.
+        """
+        query = """
+            SELECT * FROM v_daily_attendance
+            WHERE student_id = ?
+        """
+        params: List[Any] = [student_id]
+
+        if start_date:
+            query += " AND date >= ?"
+            params.append(start_date)
+
+        if end_date:
+            query += " AND date <= ?"
+            params.append(end_date)
+
+        query += " ORDER BY date DESC LIMIT ?"
+        params.append(limit)
+
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_attendance_patterns(self, student_id: int) -> List[Dict]:
+        """Get attendance patterns by day of week for a student.
+
+        Uses the v_attendance_patterns view to analyze which days
+        have the most absences.
+
+        Args:
+            student_id: The student's database ID.
+
+        Returns:
+            List of pattern dictionaries, one per day of week with records.
+        """
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                SELECT * FROM v_attendance_patterns
+                WHERE student_id = ?
+                ORDER BY day_number
+                """,
+                (student_id,),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_weekly_attendance(
+        self, student_id: int, weeks: int = 12
+    ) -> List[Dict]:
+        """Get weekly attendance summaries for a student.
+
+        Args:
+            student_id: The student's database ID.
+            weeks: Number of weeks to retrieve (default 12).
+
+        Returns:
+            List of weekly summary dictionaries.
+        """
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                SELECT * FROM v_weekly_attendance
+                WHERE student_id = ?
+                ORDER BY week_start DESC
+                LIMIT ?
+                """,
+                (student_id, weeks),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_attendance_streak(self, student_id: int) -> Dict:
+        """Calculate current and longest attendance/absence streaks.
+
+        Args:
+            student_id: The student's database ID.
+
+        Returns:
+            Dict with current_streak, longest_present_streak, longest_absent_streak.
+        """
+        records = self.get_daily_attendance(student_id, limit=365)
+
+        if not records:
+            return {
+                "current_streak_type": "none",
+                "current_streak_days": 0,
+                "longest_present_streak": 0,
+                "longest_absent_streak": 0,
+            }
+
+        # Records are ordered by date DESC, reverse for chronological processing
+        records = list(reversed(records))
+
+        current_streak_type = None
+        current_streak_days = 0
+        longest_present = 0
+        longest_absent = 0
+        temp_present = 0
+        temp_absent = 0
+
+        for record in records:
+            status = record.get("status", "Unknown")
+
+            if status in ("Present", "Tardy"):
+                temp_present += 1
+                longest_present = max(longest_present, temp_present)
+                temp_absent = 0
+            elif status == "Absent":
+                temp_absent += 1
+                longest_absent = max(longest_absent, temp_absent)
+                temp_present = 0
+            else:
+                # Excused or Unknown - don't break streaks
+                pass
+
+        # Determine current streak from most recent records
+        for record in reversed(records):
+            status = record.get("status", "Unknown")
+            if status in ("Present", "Tardy"):
+                if current_streak_type is None:
+                    current_streak_type = "present"
+                if current_streak_type == "present":
+                    current_streak_days += 1
+                else:
+                    break
+            elif status == "Absent":
+                if current_streak_type is None:
+                    current_streak_type = "absent"
+                if current_streak_type == "absent":
+                    current_streak_days += 1
+                else:
+                    break
+            else:
+                # Skip excused/unknown for current streak calculation
+                continue
+
+        return {
+            "current_streak_type": current_streak_type or "none",
+            "current_streak_days": current_streak_days,
+            "longest_present_streak": longest_present,
+            "longest_absent_streak": longest_absent,
+        }
+
+    def clear_attendance_records(self, student_id: int) -> None:
+        """Clear all daily attendance records for a student.
+
+        Typically called before re-syncing attendance from PowerSchool.
+
+        Args:
+            student_id: The student's database ID.
+        """
+        with get_db(self.db_path) as conn:
+            conn.execute(
+                "DELETE FROM attendance_records WHERE student_id = ?",
+                (student_id,),
+            )
+
     # ==================== SCRAPE HISTORY ====================
 
     def start_scrape(self, student_id: Optional[int] = None) -> int:
@@ -1015,6 +1256,415 @@ class Repository:
             )
             return int(cursor.fetchone()["id"])
 
+    # ==================== TEACHER COMMENTS ====================
+
+    def add_teacher_comment(
+        self,
+        student_id: int,
+        course_name: str,
+        term: str,
+        comment: str,
+        course_id: Optional[int] = None,
+        course_number: Optional[str] = None,
+        expression: Optional[str] = None,
+        teacher_name: Optional[str] = None,
+        teacher_email: Optional[str] = None,
+    ) -> int:
+        """Add a teacher comment record.
+
+        Args:
+            student_id: The student's database ID.
+            course_name: Name of the course.
+            term: Academic term (e.g., "Q1", "Q2", "S1").
+            comment: The teacher's comment text.
+            course_id: Optional course database ID for linking.
+            course_number: Course number (e.g., "54436").
+            expression: Period/block expression (e.g., "1/6(A-B)").
+            teacher_name: Teacher's name.
+            teacher_email: Teacher's email address.
+
+        Returns:
+            The database ID of the inserted comment record.
+        """
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO teacher_comments (
+                    student_id, course_id, course_name, course_number,
+                    expression, teacher_name, teacher_email, term, comment
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(student_id, course_name, term, comment) DO UPDATE SET
+                    course_id = COALESCE(excluded.course_id, course_id),
+                    course_number = COALESCE(excluded.course_number, course_number),
+                    expression = COALESCE(excluded.expression, expression),
+                    teacher_name = COALESCE(excluded.teacher_name, teacher_name),
+                    teacher_email = COALESCE(excluded.teacher_email, teacher_email)
+                RETURNING id
+                """,
+                (
+                    student_id,
+                    course_id,
+                    course_name,
+                    course_number,
+                    expression,
+                    teacher_name,
+                    teacher_email,
+                    term,
+                    comment,
+                ),
+            )
+            return int(cursor.fetchone()["id"])
+
+    def get_teacher_comments(
+        self,
+        student_id: Optional[int] = None,
+        course_name: Optional[str] = None,
+        term: Optional[str] = None,
+    ) -> List[Dict]:
+        """Get teacher comments with optional filters.
+
+        Args:
+            student_id: Optional filter by student ID.
+            course_name: Optional filter by course name (partial match).
+            term: Optional filter by term (exact match).
+
+        Returns:
+            List of comment dictionaries from the v_teacher_comments view.
+        """
+        query = "SELECT * FROM v_teacher_comments WHERE 1=1"
+        params: List[Any] = []
+
+        if student_id:
+            query += " AND student_id = ?"
+            params.append(student_id)
+
+        if course_name:
+            query += " AND course_name LIKE ?"
+            params.append(f"%{course_name}%")
+
+        if term:
+            query += " AND term = ?"
+            params.append(term)
+
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_teacher_comments_summary(self, student_id: int) -> List[Dict]:
+        """Get a summary of teacher comments by term for a student.
+
+        Args:
+            student_id: The student's database ID.
+
+        Returns:
+            List of summary dictionaries showing comment counts by term.
+        """
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT * FROM v_teacher_comments_by_term WHERE student_id = ?",
+                (student_id,),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def clear_teacher_comments(
+        self,
+        student_id: int,
+        term: Optional[str] = None,
+    ) -> int:
+        """Clear teacher comments for a student, optionally for a specific term.
+
+        Typically called before re-syncing comments from PowerSchool
+        to avoid duplicates.
+
+        Args:
+            student_id: The student's database ID.
+            term: Optional term to clear. If None, clears all comments.
+
+        Returns:
+            Number of deleted records.
+        """
+        with get_db(self.db_path) as conn:
+            if term:
+                cursor = conn.execute(
+                    "DELETE FROM teacher_comments WHERE student_id = ? AND term = ?",
+                    (student_id, term),
+                )
+            else:
+                cursor = conn.execute(
+                    "DELETE FROM teacher_comments WHERE student_id = ?",
+                    (student_id,),
+                )
+            return cursor.rowcount
+
+    # ==================== COURSE CATEGORIES ====================
+
+    def add_course_category(
+        self,
+        course_id: int,
+        category_name: str,
+        weight: Optional[float] = None,
+        points_earned: Optional[float] = None,
+        points_possible: Optional[float] = None,
+    ) -> int:
+        """Add a course category record.
+
+        Args:
+            course_id: The course's database ID.
+            category_name: Name of the category (e.g., "Formative", "Summative").
+            weight: Category weight as percentage (0-100).
+            points_earned: Total points earned in this category.
+            points_possible: Total points possible in this category.
+
+        Returns:
+            The database ID of the inserted category.
+        """
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO course_categories (course_id, category_name, weight,
+                    points_earned, points_possible)
+                VALUES (?, ?, ?, ?, ?)
+                RETURNING id
+                """,
+                (course_id, category_name, weight, points_earned, points_possible),
+            )
+            return int(cursor.fetchone()["id"])
+
+    def upsert_course_category(
+        self,
+        course_id: int,
+        category_name: str,
+        weight: Optional[float] = None,
+        points_earned: Optional[float] = None,
+        points_possible: Optional[float] = None,
+    ) -> int:
+        """Insert or update a course category record.
+
+        Uses UPSERT based on (course_id, category_name) unique constraint.
+
+        Args:
+            course_id: The course's database ID.
+            category_name: Name of the category.
+            weight: Category weight as percentage (0-100).
+            points_earned: Total points earned in this category.
+            points_possible: Total points possible in this category.
+
+        Returns:
+            The database ID of the inserted or updated category.
+        """
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO course_categories (course_id, category_name, weight,
+                    points_earned, points_possible)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(course_id, category_name) DO UPDATE SET
+                    weight = excluded.weight,
+                    points_earned = excluded.points_earned,
+                    points_possible = excluded.points_possible
+                RETURNING id
+                """,
+                (course_id, category_name, weight, points_earned, points_possible),
+            )
+            return int(cursor.fetchone()["id"])
+
+    def get_course_categories(self, course_id: int) -> List[Dict]:
+        """Get all categories for a course.
+
+        Args:
+            course_id: The course's database ID.
+
+        Returns:
+            List of category dictionaries with keys: id, course_id,
+            category_name, weight, points_earned, points_possible.
+        """
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT * FROM course_categories WHERE course_id = ? ORDER BY category_name",
+                (course_id,),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def clear_course_categories(self, course_id: int) -> None:
+        """Clear all categories for a course.
+
+        Args:
+            course_id: The course's database ID.
+        """
+        with get_db(self.db_path) as conn:
+            conn.execute("DELETE FROM course_categories WHERE course_id = ?", (course_id,))
+
+    # ==================== ASSIGNMENT DETAILS ====================
+
+    def add_assignment_details(
+        self,
+        assignment_id: int,
+        description: Optional[str] = None,
+        standards: Optional[str] = None,
+        comments: Optional[str] = None,
+    ) -> int:
+        """Add assignment details record.
+
+        Args:
+            assignment_id: The assignment's database ID.
+            description: Assignment description text.
+            standards: JSON string of standards (e.g., '["6.NS.1", "6.NS.2"]').
+            comments: Teacher comments.
+
+        Returns:
+            The database ID of the inserted details record.
+        """
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO assignment_details (assignment_id, description, standards, comments)
+                VALUES (?, ?, ?, ?)
+                RETURNING id
+                """,
+                (assignment_id, description, standards, comments),
+            )
+            return int(cursor.fetchone()["id"])
+
+    def upsert_assignment_details(
+        self,
+        assignment_id: int,
+        description: Optional[str] = None,
+        standards: Optional[str] = None,
+        comments: Optional[str] = None,
+    ) -> int:
+        """Insert or update assignment details.
+
+        Uses UPSERT based on assignment_id unique constraint.
+
+        Args:
+            assignment_id: The assignment's database ID.
+            description: Assignment description text.
+            standards: JSON string of standards.
+            comments: Teacher comments.
+
+        Returns:
+            The database ID of the inserted or updated details record.
+        """
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO assignment_details (assignment_id, description, standards, comments)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(assignment_id) DO UPDATE SET
+                    description = excluded.description,
+                    standards = excluded.standards,
+                    comments = excluded.comments
+                RETURNING id
+                """,
+                (assignment_id, description, standards, comments),
+            )
+            return int(cursor.fetchone()["id"])
+
+    def get_assignment_details(self, assignment_id: int) -> Optional[Dict]:
+        """Get details for a specific assignment.
+
+        Args:
+            assignment_id: The assignment's database ID.
+
+        Returns:
+            Details dictionary if found, None otherwise.
+        """
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT * FROM assignment_details WHERE assignment_id = ?",
+                (assignment_id,),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    # ==================== COURSE SCORE DETAILS ====================
+
+    def get_course_score_details(self, course_id: int) -> Optional[Dict]:
+        """Get complete course score details including categories and assignments.
+
+        Aggregates course info, category weights, and assignments with their
+        details into a comprehensive report.
+
+        Args:
+            course_id: The course's database ID.
+
+        Returns:
+            Dictionary with keys:
+            - course: Course information
+            - categories: List of category weights
+            - assignments: List of assignments with details
+        """
+        with get_db(self.db_path) as conn:
+            # Get course info
+            cursor = conn.execute(
+                "SELECT * FROM courses WHERE id = ?",
+                (course_id,),
+            )
+            course_row = cursor.fetchone()
+            if not course_row:
+                return None
+
+            course = dict(course_row)
+
+            # Get categories
+            cursor = conn.execute(
+                """
+                SELECT id, course_id, category_name, weight, points_earned, points_possible,
+                       CASE WHEN points_possible > 0
+                            THEN (points_earned / points_possible) * 100
+                            ELSE NULL
+                       END as category_percent
+                FROM course_categories
+                WHERE course_id = ?
+                ORDER BY category_name
+                """,
+                (course_id,),
+            )
+            categories = [dict(row) for row in cursor.fetchall()]
+
+            # Get assignments with details
+            cursor = conn.execute(
+                """
+                SELECT a.*, ad.description, ad.standards, ad.comments
+                FROM assignments a
+                LEFT JOIN assignment_details ad ON a.id = ad.assignment_id
+                WHERE a.course_id = ?
+                ORDER BY a.due_date DESC
+                """,
+                (course_id,),
+            )
+            assignments = [dict(row) for row in cursor.fetchall()]
+
+            return {
+                "course": course,
+                "categories": categories,
+                "assignments": assignments,
+            }
+
+    def get_course_score_details_by_name(
+        self, student_id: int, course_name: str
+    ) -> Optional[Dict]:
+        """Get course score details by course name.
+
+        Args:
+            student_id: The student's database ID.
+            course_name: Partial or full course name to match.
+
+        Returns:
+            Dictionary with course, categories, and assignments, or None.
+        """
+        with get_db(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT id FROM courses WHERE student_id = ? AND course_name LIKE ?",
+                (student_id, f"%{course_name}%"),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            return self.get_course_score_details(row["id"])
+
     # ==================== RAW QUERIES ====================
 
     # Allowed tables/views for custom queries (read-only access)
@@ -1029,12 +1679,21 @@ class Repository:
             "v_assignment_completion_rate",
             "v_student_summary",
             "v_action_items",
+            "v_daily_attendance",
+            "v_attendance_patterns",
+            "v_weekly_attendance",
+            "v_teacher_comments",
+            "v_teacher_comments_by_term",
             # Base tables (read-only)
             "students",
             "courses",
             "grades",
             "assignments",
             "attendance_summary",
+            "attendance_records",
+            "teacher_comments",
+            "course_categories",
+            "assignment_details",
             "scrape_history",
         }
     )

@@ -171,3 +171,100 @@ JOIN students s ON att.student_id = s.id
 WHERE att.attendance_rate < 90
 
 ORDER BY priority DESC, relevant_date DESC;
+
+-- View: Daily Attendance
+-- Lists all daily attendance records with student info
+CREATE VIEW IF NOT EXISTS v_daily_attendance AS
+SELECT
+    s.id AS student_id,
+    s.first_name,
+    s.last_name,
+    s.first_name || ' ' || COALESCE(s.last_name, '') AS student_name,
+    ar.date,
+    ar.status,
+    ar.code,
+    ar.period,
+    ar.recorded_at
+FROM attendance_records ar
+JOIN students s ON ar.student_id = s.id
+ORDER BY ar.date DESC;
+
+-- View: Attendance Patterns
+-- Aggregates attendance by day of week to detect patterns
+CREATE VIEW IF NOT EXISTS v_attendance_patterns AS
+SELECT
+    s.id AS student_id,
+    s.first_name,
+    s.last_name,
+    s.first_name || ' ' || COALESCE(s.last_name, '') AS student_name,
+    CASE cast(strftime('%w', ar.date) AS INTEGER)
+        WHEN 0 THEN 'Sunday'
+        WHEN 1 THEN 'Monday'
+        WHEN 2 THEN 'Tuesday'
+        WHEN 3 THEN 'Wednesday'
+        WHEN 4 THEN 'Thursday'
+        WHEN 5 THEN 'Friday'
+        WHEN 6 THEN 'Saturday'
+    END AS day_name,
+    strftime('%w', ar.date) AS day_number,
+    SUM(CASE WHEN ar.status IN ('Absent', 'A') THEN 1 ELSE 0 END) AS absence_count,
+    SUM(CASE WHEN ar.status IN ('Tardy', 'T') THEN 1 ELSE 0 END) AS tardy_count,
+    SUM(CASE WHEN ar.status IN ('Present', 'P', '.') THEN 1 ELSE 0 END) AS present_count,
+    SUM(CASE WHEN ar.status IN ('Excused', 'E') THEN 1 ELSE 0 END) AS excused_count,
+    COUNT(*) AS total_records,
+    ROUND(100.0 * SUM(CASE WHEN ar.status IN ('Present', 'P', '.') THEN 1 ELSE 0 END) / COUNT(*), 1) AS attendance_rate
+FROM attendance_records ar
+JOIN students s ON ar.student_id = s.id
+GROUP BY s.id, strftime('%w', ar.date)
+ORDER BY s.first_name, day_number;
+
+-- View: Weekly Attendance Summary
+-- Summarizes attendance by week
+CREATE VIEW IF NOT EXISTS v_weekly_attendance AS
+SELECT
+    s.id AS student_id,
+    s.first_name || ' ' || COALESCE(s.last_name, '') AS student_name,
+    strftime('%Y-%W', ar.date) AS week_key,
+    date(ar.date, 'weekday 0', '-6 days') AS week_start,
+    SUM(CASE WHEN ar.status IN ('Present', 'P', '.') THEN 1 ELSE 0 END) AS days_present,
+    SUM(CASE WHEN ar.status IN ('Absent', 'A') THEN 1 ELSE 0 END) AS days_absent,
+    SUM(CASE WHEN ar.status IN ('Tardy', 'T') THEN 1 ELSE 0 END) AS tardies,
+    SUM(CASE WHEN ar.status IN ('Excused', 'E') THEN 1 ELSE 0 END) AS excused,
+    COUNT(*) AS total_days
+FROM attendance_records ar
+JOIN students s ON ar.student_id = s.id
+GROUP BY s.id, strftime('%Y-%W', ar.date)
+ORDER BY week_start DESC;
+
+-- View: Teacher Comments
+-- Lists all teacher comments with student and course info
+CREATE VIEW IF NOT EXISTS v_teacher_comments AS
+SELECT
+    tc.id,
+    s.id AS student_id,
+    s.first_name || ' ' || COALESCE(s.last_name, '') AS student_name,
+    tc.course_name,
+    tc.course_number,
+    tc.expression,
+    tc.teacher_name,
+    tc.teacher_email,
+    tc.term,
+    tc.comment,
+    tc.recorded_at
+FROM teacher_comments tc
+JOIN students s ON tc.student_id = s.id
+ORDER BY tc.term DESC, tc.course_name;
+
+-- View: Teacher Comments by Term
+-- Groups comments by term with counts
+CREATE VIEW IF NOT EXISTS v_teacher_comments_by_term AS
+SELECT
+    s.id AS student_id,
+    s.first_name || ' ' || COALESCE(s.last_name, '') AS student_name,
+    tc.term,
+    COUNT(*) AS comment_count,
+    GROUP_CONCAT(tc.course_name, ', ') AS courses_with_comments
+FROM teacher_comments tc
+JOIN students s ON tc.student_id = s.id
+GROUP BY s.id, tc.term
+ORDER BY tc.term DESC;
