@@ -1,11 +1,15 @@
 """Claude AI integration for SchoolPulse chat assistant."""
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 from anthropic import Anthropic
+
+# Configure logging
+logger = logging.getLogger(__name__)
 from data_queries import (
     get_all_courses,
     get_assignment_stats,
@@ -206,7 +210,14 @@ Current student context:
             iteration_count += 1
 
             # Check for infinite loop protection
-            if iteration_count > MAX_TOOL_ITERATIONS:
+            if iteration_count >= MAX_TOOL_ITERATIONS:
+                # Log the tools that were called for debugging
+                tool_uses = [block for block in response.content if block.type == "tool_use"]
+                tool_names = [tool_use.name for tool_use in tool_uses]
+                logger.warning(
+                    f"Tool iteration limit reached. Iteration: {iteration_count}, "
+                    f"Tools called: {tool_names}, Student: {student_name}"
+                )
                 return (
                     f"Error: Maximum tool iteration limit ({MAX_TOOL_ITERATIONS}) reached. "
                     "This may indicate an infinite loop. Please try rephrasing your question."
