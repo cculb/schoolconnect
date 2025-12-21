@@ -19,9 +19,10 @@ SchoolConnect is a PowerSchool parent portal scraper that aggregates student aca
 | Grades (Q1-Q4, S1-S2) | Captured | 12 | 100% |
 | Assignments | Captured | 36 | 95% |
 | Teachers | Captured | 7 | 90% |
-| Attendance Summary | Captured | 1 | 80% |
-| Daily Attendance | NOT Captured | 0 | 0% |
-| Teacher Comments | NOT Captured | 0 | 0% |
+| Attendance Summary | Captured | 1 | 100% |
+| Daily Attendance | Captured | Variable | 100% |
+| Teacher Comments | Captured | Variable | 100% |
+| Course Scores | Captured | Variable | 100% |
 | School Calendar | NOT Captured | 0 | 0% |
 | Announcements | NOT Captured | 0 | 0% |
 
@@ -33,8 +34,8 @@ SchoolConnect is a PowerSchool parent portal scraper that aggregates student aca
 
 ```
 Students in System:
-- Delilah (ID: 55260) - 6th Grade
-- Sean (ID: 55259) - Grade TBD
+- Student A (ID: XXXXX) - 6th Grade
+- Student B (ID: XXXXX) - Grade TBD
 ```
 
 **Fields Captured:**
@@ -74,7 +75,7 @@ Students in System:
 
 ### 1.3 Grade Data
 
-**Current Grades (Delilah - Q1):**
+**Current Grades (Student A - Q1):**
 
 | Course | Grade | Term |
 |--------|-------|------|
@@ -153,7 +154,7 @@ Students in System:
 
 ### 1.6 Attendance Data
 
-**Year-to-Date Summary (Delilah):**
+**Year-to-Date Summary (Student A):**
 
 - Attendance Rate: 94.4%
 - Total Days: 80
@@ -171,14 +172,14 @@ Students in System:
 
 ---
 
-## Part 2: Additional Data Available (NOT Currently Scraped)
+## Part 2: Additional Data Sources
 
-Based on analysis of raw HTML and PowerSchool structure, the following data sources are available but not captured:
+Based on analysis of PowerSchool structure, the following shows implementation status of additional data sources:
 
-### 2.1 Teacher Comments (HIGH VALUE)
+### 2.1 Teacher Comments - IMPLEMENTED ✅
 
 **Location:** `/guardian/teachercomments.html`
-**Raw HTML Files:** `comments_q1.html`, `comments_q2.html` (545KB each)
+**Parser:** `src/scraper/parsers/teacher_comments.py`
 
 **Structure:**
 
@@ -187,18 +188,21 @@ Headers: Exp., Course #, Course, Teacher, Comment
 Rows: 15 per quarter
 ```
 
-**Data Available:**
+**Data Captured:**
 
 - Per-course teacher comments
 - Quarter-specific feedback
 - Personalized observations
 - Progress notes
+- Course number and expression
+- Teacher name and email
 
 **Impact:** Teacher comments provide qualitative insights that grades alone cannot capture. Essential for understanding *why* a student is performing a certain way.
 
-### 2.2 Daily Attendance Records (MEDIUM VALUE)
+### 2.2 Daily Attendance Records - IMPLEMENTED ✅
 
 **Location:** Home page attendance grid, `/guardian/mba_attendance_monitor/`
+**Parser:** `src/scraper/parsers/attendance.py`
 
 **Structure:**
 
@@ -206,14 +210,15 @@ Rows: 15 per quarter
 Attendance By Day | Last Week | This Week | Absences | Tardies | M T W H F
 ```
 
-**Data Available:**
+**Data Captured:**
 
 - Day-by-day attendance (M/T/W/H/F)
 - Weekly patterns
 - Per-course absence/tardy counts
 - Attendance codes and reasons
+- Period-level attendance records
 
-**Impact:** Enables pattern detection (e.g., "always absent on Mondays") and early intervention.
+**Impact:** Enables pattern detection (e.g., "always absent on Mondays") and early intervention. Database views available: `v_daily_attendance`, `v_attendance_patterns`, `v_weekly_attendance`.
 
 ### 2.3 Applications/External Links (LOW-MEDIUM VALUE)
 
@@ -235,17 +240,19 @@ Applications | Description
 
 **Impact:** Could provide one-stop access to all educational tools.
 
-### 2.4 Detailed Course Scores Page (MEDIUM VALUE)
+### 2.4 Detailed Course Scores Page - IMPLEMENTED ✅
 
 **Location:** `/guardian/scores.html?frn=...`
+**Parser:** `src/scraper/parsers/course_scores.py`
 
-**Data Available:**
+**Data Captured:**
 
 - Full assignment breakdown per course
 - Score distributions
 - Category weights
 - Standards alignment
 - Assignment descriptions
+- Individual assignment details
 
 **Impact:** More granular view of how grades are calculated.
 
@@ -290,11 +297,9 @@ Applications | Description
 
 ### Gaps
 
-1. **Attendance detail missing** - Only summary, no daily records
-2. **No teacher comments** - Qualitative feedback not captured
-3. **Score parsing incomplete** - "/10" format not fully parsed to numerics
-4. **Second student (Sean) not scraped** - Only Delilah has data
-5. **No historical tracking** - Scrape history table empty
+1. **Score parsing incomplete** - "/10" format not fully parsed to numerics
+2. **Second student (Student B) not scraped** - Only Student A has data
+3. **No historical tracking** - Scrape history table empty
 
 ### Data Freshness
 
@@ -306,7 +311,7 @@ Applications | Description
 
 ## Part 4: Database Analytics Views
 
-The system includes 8 pre-built analytical views:
+The system includes 13 pre-built analytical views:
 
 | View | Purpose | Status |
 |------|---------|--------|
@@ -318,12 +323,17 @@ The system includes 8 pre-built analytical views:
 | v_assignment_completion_rate | Completion % by course | Working |
 | v_student_summary | High-level summary per student | Working |
 | v_action_items | Prioritized parent action items | Working |
+| v_daily_attendance | Daily attendance records with student info | Working |
+| v_attendance_patterns | Attendance patterns by day of week | Working |
+| v_weekly_attendance | Weekly attendance summaries | Working |
+| v_teacher_comments | All teacher comments with course info | Working |
+| v_teacher_comments_by_term | Comments grouped by term with counts | Working |
 
 ---
 
 ## Part 5: MCP Server Capabilities
 
-The MCP server exposes 22+ tools for AI agents:
+The MCP server exposes 24 tools for AI agents:
 
 ### Student Tools
 
@@ -380,10 +390,10 @@ Based on the research document's vision for a bilingual parent engagement app:
 
 ### Short-Term Additions (PowerSchool Data)
 
-1. **Scrape Teacher Comments** - Add parser for `teachercomments.html`
-2. **Daily Attendance** - Extract from home page attendance grid
+1. ~~**Scrape Teacher Comments**~~ - ✅ COMPLETED - Parser implemented at `src/scraper/parsers/teacher_comments.py`
+2. ~~**Daily Attendance**~~ - ✅ COMPLETED - Parser implemented at `src/scraper/parsers/attendance.py`
 3. **Both Students** - Add multi-student support to scraper
-4. **Course Details** - Scrape individual course score pages
+4. ~~**Course Details**~~ - ✅ COMPLETED - Parser implemented at `src/scraper/parsers/course_scores.py`
 
 ### Medium-Term Integrations (External Sources)
 
@@ -438,21 +448,24 @@ Based on the research document's vision for a bilingual parent engagement app:
 
 ## Conclusion
 
-SchoolConnect has successfully built a robust foundation for parent engagement by capturing core academic data from PowerSchool. The system is production-ready for:
+SchoolConnect has successfully built a robust foundation for parent engagement by capturing comprehensive academic data from PowerSchool. The system is production-ready for:
 
 - Tracking grades and assignments
 - Alerting parents to missing work
-- Monitoring attendance
+- Monitoring attendance (including daily records and patterns)
 - Facilitating teacher communication
+- Accessing teacher comments and qualitative feedback
+- Analyzing detailed course scores
 
 To fully realize the vision of a bilingual parent engagement app for Berry Creek Middle School, the following priorities should be addressed:
 
-1. **Add teacher comments** - Rich qualitative data available
+1. ~~**Add teacher comments**~~ - ✅ COMPLETED - Rich qualitative data now captured
 2. **Integrate translation** - Spanish as primary secondary language
 3. **Expand data sources** - Calendar, announcements, community resources
 4. **Build conversational interface** - Natural language queries
+5. **Multi-student support** - Extend scraper to handle multiple students
 
-The technical foundation is solid. The next phase is expanding data coverage and building the parent-facing interface.
+The technical foundation is solid with comprehensive data extraction complete. The next phase is building the bilingual parent-facing interface.
 
 ---
 
@@ -802,7 +815,7 @@ Reports generated from 75+ web sources, December 2025:
 
 ### Appendix B: Existing Codebase Assets
 
-**Already Built (23 MCP Tools):**
+**Already Built (24 MCP Tools):**
 
 - `list_students` - List all students
 - `get_student_summary` - Comprehensive overview
@@ -830,9 +843,10 @@ Reports generated from 75+ web sources, December 2025:
 SchoolConnect has a **significant head start** over competitors:
 
 1. ✅ PowerSchool data already extracted and structured
-2. ✅ 23 MCP tools ready for Claude integration
+2. ✅ 24 MCP tools ready for Claude integration
 3. ✅ Streamlit chat interface exists
-4. ✅ Database with 8 analytical views
+4. ✅ Database with 13 analytical views
+5. ✅ Teacher comments, daily attendance, and course scores implemented
 
 **To reach MVP demo in 4 weeks:**
 

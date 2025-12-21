@@ -27,8 +27,9 @@ cd schoolconnect
 # Install dependencies with uv
 uv sync
 
-# Install Playwright browsers
+# Install Playwright browsers and dependencies
 uv run playwright install chromium
+uv run playwright install-deps chromium
 ```
 
 ## Configuration
@@ -94,6 +95,13 @@ powerschool report -s "StudentName"
 ```bash
 # Show database statistics and student overview
 powerschool status
+```
+
+### Action Items
+
+```bash
+# Show prioritized action items for a student
+powerschool actions -s "StudentName"
 ```
 
 ### MCP Server (AI Integration)
@@ -176,13 +184,17 @@ schoolconnect/
 │   │   └── main.py       # Click-based CLI commands
 │   ├── database/         # SQLite database layer
 │   │   ├── connection.py # Connection management
-│   │   ├── repository.py # Data access methods
-│   │   ├── schema.sql    # Database schema
-│   │   └── views.sql     # Analysis views
+│   │   ├── repository.py # Query methods and data access
+│   │   ├── schema.sql    # Database schema (tables)
+│   │   └── views.sql     # Analysis views (13 views)
 │   ├── mcp_server/       # MCP server for AI agents
-│   │   └── server.py     # MCP protocol implementation
+│   │   └── server.py     # MCP protocol implementation (24 tools)
 │   └── scraper/          # Web scraping components
-│       └── parsers/      # HTML parsing logic
+│       ├── auth.py       # PowerSchool authentication
+│       └── parsers/      # HTML parsing modules
+│           ├── attendance.py       # Daily attendance records
+│           ├── course_scores.py   # Grade details & assignments
+│           └── teacher_comments.py # Teacher feedback
 ├── scripts/              # Standalone scraping scripts
 │   ├── scrape_full.py    # Full data scrape
 │   └── load_data.py      # Load scraped data to DB
@@ -193,7 +205,7 @@ schoolconnect/
 
 ## Database Views
 
-The database includes pre-built views for common queries:
+The database includes 13 pre-built views for common queries:
 
 | View | Description |
 |------|-------------|
@@ -201,20 +213,58 @@ The database includes pre-built views for common queries:
 | `v_missing_assignments` | All missing assignments with details |
 | `v_grade_trends` | Grade progression Q1 -> Q2 -> S1 -> Q3 -> Q4 -> S2 |
 | `v_attendance_alerts` | Students with attendance below 95% |
+| `v_attendance_summary` | Overall attendance statistics per student |
 | `v_upcoming_assignments` | Assignments due in next 14 days |
+| `v_assignment_completion_rate` | Completion rates by student and course |
 | `v_student_summary` | High-level summary per student |
 | `v_action_items` | Prioritized parent action items |
+| `v_daily_attendance` | Daily attendance records with status codes |
+| `v_attendance_patterns` | Attendance patterns by day of week |
+| `v_weekly_attendance` | Weekly attendance summaries |
+| `v_teacher_comments` | All teacher comments with course info |
+| `v_teacher_comments_by_term` | Teacher comments grouped by term |
 
 ## MCP Tools
 
-The MCP server exposes these tools for AI agents:
+The MCP server exposes 24 tools for AI agents:
 
-- `get_students` - List all students
-- `get_grades` - Get grades for a student
-- `get_missing_assignments` - Get missing work
-- `get_attendance` - Get attendance data
-- `get_action_items` - Get prioritized action items
-- `custom_query` - Run read-only SQL queries (restricted to allowed tables/views)
+**Student Tools:**
+- `list_students` - List all students with grade level and school
+- `get_student_summary` - Get comprehensive student overview
+
+**Grade Tools:**
+- `get_current_grades` - Get current grades across all courses
+- `get_grade_trends` - Show grade progression over quarters/semesters
+
+**Assignment Tools:**
+- `get_missing_assignments` - Get all missing assignments
+- `get_upcoming_assignments` - Get assignments due in next N days
+- `get_assignment_completion_rates` - Get completion rates by course
+- `get_course_score_details` - Get detailed score breakdown with category weights
+
+**Attendance Tools:**
+- `get_attendance_summary` - Get attendance rate, absences, tardies
+- `get_attendance_alerts` - Get students with attendance concerns
+- `get_daily_attendance` - Get daily attendance records with date filters
+- `get_attendance_patterns` - Analyze attendance patterns by day of week
+
+**Insight Tools:**
+- `get_action_items` - Get prioritized action items for parents
+- `generate_weekly_report` - Generate comprehensive weekly report
+- `prepare_teacher_meeting` - Prepare talking points for parent-teacher meetings
+
+**Teacher Tools:**
+- `get_teacher_comments` - Get teacher comments and feedback
+- `list_teachers` - List all teachers with contact information
+- `get_teacher_profile` - Get detailed teacher profile and courses
+- `draft_teacher_email` - Draft contextual emails to teachers
+- `get_communication_suggestions` - Get suggested teacher outreach topics
+- `save_communication_draft` - Save email drafts for later
+- `list_communication_drafts` - List saved communication drafts
+
+**Utility Tools:**
+- `run_custom_query` - Run read-only SQL queries (SELECT only)
+- `get_database_status` - Get database statistics and sync info
 
 ## Development
 
