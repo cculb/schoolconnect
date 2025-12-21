@@ -395,7 +395,7 @@ class TestAIAssistant:
                 assert str(MAX_TOOL_ITERATIONS) in response
 
                 # Should have called create exactly MAX_TOOL_ITERATIONS + 1 times
-                # (initial call + MAX_TOOL_ITERATIONS iterations)
+                # (initial call + MAX_TOOL_ITERATIONS loop iterations before hitting limit)
                 assert mock_client.messages.create.call_count == MAX_TOOL_ITERATIONS + 1
 
     def test_max_iteration_limit_allows_normal_queries(

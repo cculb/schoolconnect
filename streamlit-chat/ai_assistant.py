@@ -7,9 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from anthropic import Anthropic
-
-# Configure logging
-logger = logging.getLogger(__name__)
 from data_queries import (
     get_all_courses,
     get_assignment_stats,
@@ -20,6 +17,9 @@ from data_queries import (
     get_student_summary,
     get_upcoming_assignments,
 )
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are SchoolPulse, a helpful assistant for parents to understand their child's academic progress.
 
@@ -210,7 +210,7 @@ Current student context:
             iteration_count += 1
 
             # Check for infinite loop protection
-            if iteration_count >= MAX_TOOL_ITERATIONS:
+            if iteration_count > MAX_TOOL_ITERATIONS:
                 # Log the tools that were called for debugging
                 tool_uses = [block for block in response.content if block.type == "tool_use"]
                 tool_names = [tool_use.name for tool_use in tool_uses]
