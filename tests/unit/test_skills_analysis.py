@@ -73,17 +73,17 @@ class TestSkillFrontmatter:
         frontmatter, _ = parse_skill_file(skill_file)
         assert "description" in frontmatter, f"{skill_file} missing 'description' field"
         assert frontmatter["description"], f"{skill_file} has empty description"
-        assert (
-            len(frontmatter["description"]) >= 20
-        ), f"{skill_file} description too short (min 20 chars)"
+        assert len(frontmatter["description"]) >= 20, (
+            f"{skill_file} description too short (min 20 chars)"
+        )
 
     @pytest.mark.parametrize("skill_file", SKILL_FILES)
     def test_description_is_string(self, skill_file, parse_skill_file):
         """Test that description is a string."""
         frontmatter, _ = parse_skill_file(skill_file)
-        assert isinstance(
-            frontmatter["description"], str
-        ), f"{skill_file} description is not a string"
+        assert isinstance(frontmatter["description"], str), (
+            f"{skill_file} description is not a string"
+        )
 
     @pytest.mark.parametrize("skill_file", SKILL_FILES)
     def test_frontmatter_is_valid_yaml(self, skill_file):
@@ -186,19 +186,14 @@ class TestMCPToolReferences:
 
     @pytest.mark.parametrize(
         "skill_file,expected_tools",
-        [
-            (skill, tools)
-            for skill, tools in EXPECTED_TOOLS.items()
-        ],
+        [(skill, tools) for skill, tools in EXPECTED_TOOLS.items()],
     )
     def test_references_mcp_tools(self, skill_file, expected_tools, get_skill_content):
         """Test that skill references expected MCP tools."""
         content = get_skill_content(skill_file)
 
         for tool in expected_tools:
-            assert (
-                tool in content
-            ), f"{skill_file} should reference MCP tool '{tool}'"
+            assert tool in content, f"{skill_file} should reference MCP tool '{tool}'"
 
 
 class TestInterpretationGuidance:
@@ -240,9 +235,9 @@ class TestInterpretationGuidance:
                 "concern",
             ]
         )
-        assert (
-            has_interpretation
-        ), f"{skill_file} missing interpretation guidance (thresholds, alerts, etc.)"
+        assert has_interpretation, (
+            f"{skill_file} missing interpretation guidance (thresholds, alerts, etc.)"
+        )
 
     @pytest.mark.parametrize("skill_file", ANALYSIS_SKILLS)
     def test_has_numeric_thresholds(self, skill_file, get_skill_content):
@@ -253,9 +248,7 @@ class TestInterpretationGuidance:
         has_threshold = re.search(
             r"(\d+%|below \d+|above \d+|more than \d+|less than \d+|\d+\+)", content
         )
-        assert (
-            has_threshold
-        ), f"{skill_file} should include numeric thresholds for interpretation"
+        assert has_threshold, f"{skill_file} should include numeric thresholds for interpretation"
 
 
 class TestSkillSpecificContent:
@@ -278,9 +271,7 @@ class TestSkillSpecificContent:
         # Should mention key areas
         key_areas = ["grades", "attendance", "missing", "action"]
         for area in key_areas:
-            assert (
-                area.lower() in content.lower()
-            ), f"weekly-report should mention '{area}'"
+            assert area.lower() in content.lower(), f"weekly-report should mention '{area}'"
 
     def test_attendance_skill_has_pattern_analysis(self, get_skill_content):
         """Test that analyze-attendance skill covers pattern analysis."""
@@ -289,9 +280,7 @@ class TestSkillSpecificContent:
         # Should mention pattern analysis
         pattern_keywords = ["pattern", "day of week", "streak"]
         has_pattern = any(keyword in content.lower() for keyword in pattern_keywords)
-        assert (
-            has_pattern
-        ), "analyze-attendance should include pattern analysis guidance"
+        assert has_pattern, "analyze-attendance should include pattern analysis guidance"
 
     def test_grade_trends_mentions_terms(self, get_skill_content):
         """Test that grade-trends skill mentions academic terms."""
@@ -338,9 +327,9 @@ class TestSkillQuality:
             "lorem ipsum",
         ]
         for placeholder in placeholders:
-            assert (
-                placeholder.lower() not in content.lower()
-            ), f"{skill_file} contains placeholder text: {placeholder}"
+            assert placeholder.lower() not in content.lower(), (
+                f"{skill_file} contains placeholder text: {placeholder}"
+            )
 
     @pytest.mark.parametrize("skill_file", SKILL_FILES)
     def test_has_sufficient_detail(self, skill_file, get_skill_content):
@@ -354,6 +343,4 @@ class TestSkillQuality:
 
         # Count words
         words = len(re.findall(r"\b\w+\b", body))
-        assert (
-            words >= 150
-        ), f"{skill_file} has insufficient detail ({words} words, min 150)"
+        assert words >= 150, f"{skill_file} has insufficient detail ({words} words, min 150)"
