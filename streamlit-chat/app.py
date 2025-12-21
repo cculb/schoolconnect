@@ -693,7 +693,7 @@ def render_main_app() -> None:
     # Display chat messages
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+            st.markdown(message["content"], unsafe_allow_html=True)
 
     # Chat input (HIGH-3: uses message buffer)
     if prompt := st.chat_input("💭 Ask about your child's progress..."):

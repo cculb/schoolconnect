@@ -183,6 +183,44 @@ class TestQuickActions:
         messages = logged_in_page.locator('[data-testid="stChatMessage"]')
         expect(messages).to_have_count(2, timeout=10000)
 
+    def test_quick_action_renders_html_properly(self, logged_in_page: Page):
+        """Verify quick action responses render HTML, not display raw tags.
+
+        This test catches the bug where st.markdown() was called without
+        unsafe_allow_html=True, causing HTML like <div style='...'> to
+        display as raw text instead of being rendered.
+        """
+        # Click the Missing Work button
+        logged_in_page.locator('button:has-text("Missing Work")').click()
+        logged_in_page.wait_for_load_state("networkidle")
+        logged_in_page.wait_for_timeout(500)
+
+        # Get the assistant message (second message)
+        messages = logged_in_page.locator('[data-testid="stChatMessage"]')
+        expect(messages).to_have_count(2, timeout=10000)
+
+        # Get the assistant message content
+        assistant_message = messages.nth(1)
+        message_text = assistant_message.inner_text()
+
+        # Verify raw HTML tags are NOT visible in the rendered output
+        # If HTML is properly rendered, we won't see these raw tags
+        raw_html_indicators = [
+            "<div style=",
+            "</div>",
+            "<strong>",
+            "</strong>",
+            "style='background:",
+            'style="background:',
+        ]
+
+        for indicator in raw_html_indicators:
+            assert indicator not in message_text, (
+                f"Raw HTML found in message: '{indicator}'. "
+                "HTML should be rendered, not displayed as text. "
+                "Check if st.markdown() is using unsafe_allow_html=True"
+            )
+
 
 class TestDashboard:
     """Tests for the dashboard metrics section."""
