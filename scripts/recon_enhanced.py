@@ -33,12 +33,7 @@ def get_student_info(page: Page) -> dict:
     # Look for student name in header
     try:
         # Try multiple selectors
-        selectors = [
-            "#userName",
-            ".student-name",
-            "#student-name",
-            "span.studentName"
-        ]
+        selectors = ["#userName", ".student-name", "#student-name", "span.studentName"]
         for sel in selectors:
             elem = page.query_selector(sel)
             if elem:
@@ -206,10 +201,16 @@ def scrape_assignments_page(page: Page, show_all: bool = True) -> list:
                         "percent": percent,
                         "letter_grade": letter_grade,
                         "codes": codes,
-                        "status": "Missing" if "Missing" in codes else "Collected" if "Collected" in codes else "Unknown"
+                        "status": "Missing"
+                        if "Missing" in codes
+                        else "Collected"
+                        if "Collected" in codes
+                        else "Unknown",
                     }
                     assignments.append(assignment)
-                    print(f"  Assignment: {assignment_name} ({course}) - Score: {score}, Status: {codes}")
+                    print(
+                        f"  Assignment: {assignment_name} ({course}) - Score: {score}, Status: {codes}"
+                    )
 
     print(f"  Found {len(assignments)} assignments")
 
@@ -268,7 +269,10 @@ def scrape_schedule_page(page: Page) -> list:
 def scrape_attendance_dashboard(page: Page) -> dict:
     """Scrape the attendance dashboard for detailed attendance data."""
     print("\n=== SCRAPING ATTENDANCE DASHBOARD ===")
-    page.goto(f"{BASE_URL}/guardian/mba_attendance_monitor/guardian_dashboard.html", wait_until="networkidle")
+    page.goto(
+        f"{BASE_URL}/guardian/mba_attendance_monitor/guardian_dashboard.html",
+        wait_until="networkidle",
+    )
 
     # Wait for Angular app to load data
     page.wait_for_timeout(5000)
@@ -334,7 +338,9 @@ def scrape_attendance_dashboard(page: Page) -> dict:
         except Exception as e:
             print(f"  Note: Could not extract Angular data: {e}")
 
-        print(f"  Attendance: Rate={data['rate']}%, Present={data['days_present']}, Absent={data['days_absent']}, Tardies={data['tardies']}")
+        print(
+            f"  Attendance: Rate={data['rate']}%, Present={data['days_present']}, Absent={data['days_absent']}, Tardies={data['tardies']}"
+        )
 
     except Exception as e:
         print(f"  Error extracting attendance: {e}")
@@ -371,7 +377,7 @@ def run_enhanced_recon():
         browser = p.chromium.launch(headless=False, slow_mo=300)
         context = browser.new_context(
             viewport={"width": 1280, "height": 900},
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         )
         page = context.new_page()
 

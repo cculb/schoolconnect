@@ -73,24 +73,30 @@ def generate_agent_report(summary: dict, db_stats: dict) -> dict:
     if report["status"] == "failed":
         agent_summary = summary.get("agent_summary", {})
         for issue in agent_summary.get("blocking_issues", []):
-            next_steps.append({
-                "type": "fix",
-                "priority": "high",
-                "description": issue,
-            })
+            next_steps.append(
+                {
+                    "type": "fix",
+                    "priority": "high",
+                    "description": issue,
+                }
+            )
 
         for recommendation in agent_summary.get("recommendations", []):
-            next_steps.append({
-                "type": "investigate",
-                "priority": "medium",
-                "description": recommendation,
-            })
+            next_steps.append(
+                {
+                    "type": "investigate",
+                    "priority": "medium",
+                    "description": recommendation,
+                }
+            )
     else:
-        next_steps.append({
-            "type": "proceed",
-            "priority": "low",
-            "description": "All tests passed. Ready for next development phase.",
-        })
+        next_steps.append(
+            {
+                "type": "proceed",
+                "priority": "low",
+                "description": "All tests passed. Ready for next development phase.",
+            }
+        )
 
     report["next_steps"] = next_steps
 
@@ -103,7 +109,9 @@ def generate_human_report(summary: dict, db_stats: dict) -> str:
     lines.append("# PowerSchool Portal - Test Report")
     lines.append("")
     lines.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"**Branch:** {os.getenv('CI_COMMIT_REF_NAME', os.getenv('GITHUB_REF_NAME', 'local'))}")
+    lines.append(
+        f"**Branch:** {os.getenv('CI_COMMIT_REF_NAME', os.getenv('GITHUB_REF_NAME', 'local'))}"
+    )
     lines.append(f"**Pipeline:** {os.getenv('CI_PIPELINE_ID', os.getenv('GITHUB_RUN_ID', 'N/A'))}")
     lines.append("")
 

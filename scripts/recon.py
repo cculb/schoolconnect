@@ -156,18 +156,29 @@ def analyze_page_structure(html: str, name: str) -> dict:
 
     # Find key elements by common IDs/classes
     key_selectors = [
-        "#grades-table", ".grades", "#assignments", ".assignment",
-        "#attendance", ".attendance", "#schedule", ".schedule",
-        ".student-info", "#student-name", ".course", ".class"
+        "#grades-table",
+        ".grades",
+        "#assignments",
+        ".assignment",
+        "#attendance",
+        ".attendance",
+        "#schedule",
+        ".schedule",
+        ".student-info",
+        "#student-name",
+        ".course",
+        ".class",
     ]
     for selector in key_selectors:
         elements = soup.select(selector)
         if elements:
-            analysis["key_elements"].append({
-                "selector": selector,
-                "count": len(elements),
-                "sample_text": elements[0].get_text(strip=True)[:100] if elements else ""
-            })
+            analysis["key_elements"].append(
+                {
+                    "selector": selector,
+                    "count": len(elements),
+                    "sample_text": elements[0].get_text(strip=True)[:100] if elements else "",
+                }
+            )
 
     return analysis
 
@@ -192,7 +203,7 @@ def run_recon():
         browser = p.chromium.launch(headless=False, slow_mo=500)
         context = browser.new_context(
             viewport={"width": 1280, "height": 900},
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         )
         page = context.new_page()
 

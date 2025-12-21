@@ -78,16 +78,12 @@ def validate(db_path: Path) -> Tuple[bool, list, list]:
 
             if missing_count < expected_min:
                 errors.append(
-                    f"Missing assignments: found {missing_count}, "
-                    f"expected at least {expected_min}"
+                    f"Missing assignments: found {missing_count}, expected at least {expected_min}"
                 )
             else:
                 # Check for specific known missing assignments
                 for expected in GROUND_TRUTH["missing_assignments"]:
-                    found = any(
-                        expected["name"].lower() in (m[1] or "").lower()
-                        for m in missing
-                    )
+                    found = any(expected["name"].lower() in (m[1] or "").lower() for m in missing)
                     if not found:
                         warnings.append(
                             f"Expected missing assignment not found: {expected['name']}"
@@ -110,8 +106,7 @@ def validate(db_path: Path) -> Tuple[bool, list, list]:
                     # Allow 5% tolerance for rate changes
                     if abs(rate - expected_rate) > 5.0:
                         warnings.append(
-                            f"Attendance rate: got {rate:.1f}%, "
-                            f"expected ~{expected_rate}%"
+                            f"Attendance rate: got {rate:.1f}%, expected ~{expected_rate}%"
                         )
 
                     # Check days (allow some variance)
@@ -119,16 +114,14 @@ def validate(db_path: Path) -> Tuple[bool, list, list]:
                         expected_present = GROUND_TRUTH["days_present"]
                         if abs(present - expected_present) > 5:
                             warnings.append(
-                                f"Days present: got {present}, "
-                                f"expected ~{expected_present}"
+                                f"Days present: got {present}, expected ~{expected_present}"
                             )
 
                     if absent is not None:
                         expected_absent = GROUND_TRUTH["days_absent"]
                         if abs(absent - expected_absent) > 3:
                             warnings.append(
-                                f"Days absent: got {absent}, "
-                                f"expected ~{expected_absent}"
+                                f"Days absent: got {absent}, expected ~{expected_absent}"
                             )
                 else:
                     errors.append("No attendance summary found")
@@ -144,15 +137,15 @@ def validate(db_path: Path) -> Tuple[bool, list, list]:
             expected_min = GROUND_TRUTH["courses_min"]
 
             if course_count < expected_min:
-                errors.append(
-                    f"Courses: found {course_count}, expected >= {expected_min}"
-                )
+                errors.append(f"Courses: found {course_count}, expected >= {expected_min}")
         except sqlite3.OperationalError as e:
             errors.append(f"Error counting courses: {e}")
 
         # Check teachers
         try:
-            cursor.execute("SELECT DISTINCT teacher_name FROM courses WHERE teacher_name IS NOT NULL")
+            cursor.execute(
+                "SELECT DISTINCT teacher_name FROM courses WHERE teacher_name IS NOT NULL"
+            )
             teachers = [t[0] for t in cursor.fetchall()]
 
             # Check at least 3 expected teachers are found
@@ -166,9 +159,7 @@ def validate(db_path: Path) -> Tuple[bool, list, list]:
                     warnings.append(f"Teacher not found: {expected_teacher}")
 
             if teachers_found < 3:
-                warnings.append(
-                    f"Only {teachers_found} of expected teachers found"
-                )
+                warnings.append(f"Only {teachers_found} of expected teachers found")
         except sqlite3.OperationalError as e:
             warnings.append(f"Could not check teachers: {e}")
 

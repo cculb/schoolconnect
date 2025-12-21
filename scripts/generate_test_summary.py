@@ -43,11 +43,13 @@ def parse_junit_xml(xml_path: Path) -> dict:
             error = testcase.find("error")
             result_element = failure if failure is not None else error
             if result_element is not None:
-                failures.append({
-                    "name": testcase.get("name"),
-                    "classname": testcase.get("classname"),
-                    "message": result_element.get("message", ""),
-                })
+                failures.append(
+                    {
+                        "name": testcase.get("name"),
+                        "classname": testcase.get("classname"),
+                        "message": result_element.get("message", ""),
+                    }
+                )
 
         return {
             "tests": int(testsuite.get("tests", 0)),
@@ -112,9 +114,7 @@ def get_database_stats(db_path: Path) -> dict:
 
         # Get days absent
         try:
-            cursor.execute(
-                "SELECT days_absent FROM attendance_summary WHERE term = 'YTD' LIMIT 1"
-            )
+            cursor.execute("SELECT days_absent FROM attendance_summary WHERE term = 'YTD' LIMIT 1")
             row = cursor.fetchone()
             stats["days_absent"] = row[0] if row else None
         except sqlite3.OperationalError:
@@ -165,9 +165,7 @@ def validate_ground_truth(stats: dict) -> dict:
     return validations
 
 
-def generate_agent_summary(
-    test_results: dict, db_stats: dict, validations: dict
-) -> dict:
+def generate_agent_summary(test_results: dict, db_stats: dict, validations: dict) -> dict:
     """Generate agent-friendly summary with recommendations."""
     summary = {
         "ready_for_next_phase": True,
@@ -196,9 +194,7 @@ def generate_agent_summary(
             "Missing assignments not detected correctly. "
             f"Found: {db_stats.get('missing_assignments', 0)}, Expected: >= 2"
         )
-        summary["recommendations"].append(
-            "Check scraper parser for assignment status detection"
-        )
+        summary["recommendations"].append("Check scraper parser for assignment status detection")
         summary["ready_for_next_phase"] = False
 
     if not validations.get("attendance_rate_correct"):
@@ -208,15 +204,11 @@ def generate_agent_summary(
                 "Attendance rate not extracted. Check attendance parser."
             )
         else:
-            summary["warnings"].append(
-                f"Attendance rate {rate}% outside expected range (85-92%)"
-            )
+            summary["warnings"].append(f"Attendance rate {rate}% outside expected range (85-92%)")
         summary["recommendations"].append("Verify attendance scraper targets correct elements")
 
     if not validations.get("courses_found"):
-        summary["warnings"].append(
-            f"Found {db_stats.get('courses', 0)} courses, expected >= 8"
-        )
+        summary["warnings"].append(f"Found {db_stats.get('courses', 0)} courses, expected >= 8")
         summary["recommendations"].append("Check schedule scraper for missing courses")
 
     # Database health
@@ -262,17 +254,13 @@ def main():
     summary["ground_truth_validation"] = validations
 
     # Calculate overall test stats
-    total_tests = sum(
-        r.get("tests", 0) for r in test_results.values() if isinstance(r, dict)
-    )
+    total_tests = sum(r.get("tests", 0) for r in test_results.values() if isinstance(r, dict))
     total_failures = sum(
         r.get("failures", 0) + r.get("errors", 0)
         for r in test_results.values()
         if isinstance(r, dict)
     )
-    total_skipped = sum(
-        r.get("skipped", 0) for r in test_results.values() if isinstance(r, dict)
-    )
+    total_skipped = sum(r.get("skipped", 0) for r in test_results.values() if isinstance(r, dict))
 
     summary["totals"] = {
         "tests": total_tests,
@@ -285,15 +273,11 @@ def main():
     all_tests_passed = total_failures == 0
 
     summary["status"] = (
-        "passed"
-        if (all_tests_passed and validations.get("all_passed"))
-        else "failed"
+        "passed" if (all_tests_passed and validations.get("all_passed")) else "failed"
     )
 
     # Generate agent summary
-    summary["agent_summary"] = generate_agent_summary(
-        test_results, db_stats, validations
-    )
+    summary["agent_summary"] = generate_agent_summary(test_results, db_stats, validations)
 
     # Output as JSON
     print(json.dumps(summary, indent=2, default=str))
