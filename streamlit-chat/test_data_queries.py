@@ -122,44 +122,62 @@ def test_db_with_data(tmp_path: Path) -> Path:
     """)
 
     # Insert courses
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO courses (student_id, course_name, teacher_name, teacher_email, room, term)
         VALUES (?, 'Math 6', 'Smith, John', 'jsmith@school.edu', '101', 'Q2')
-    """, (student_id,))
+    """,
+        (student_id,),
+    )
     math_course_id = cursor.lastrowid
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO courses (student_id, course_name, teacher_name, teacher_email, room, term)
         VALUES (?, 'Science (grade 6)', 'Johnson, Mary', 'mjohnson@school.edu', '202', 'Q2')
-    """, (student_id,))
+    """,
+        (student_id,),
+    )
 
     # Insert assignments
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO assignments (student_id, course_name, teacher_name, assignment_name,
                                  category, due_date, status, term)
         VALUES (?, 'Science (grade 6)', 'Johnson, Mary', 'Atomic Structure Knowledge Check',
                 'Formative', '2024-12-10', 'Missing', 'Q2')
-    """, (student_id,))
+    """,
+        (student_id,),
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO assignments (student_id, course_name, teacher_name, assignment_name,
                                  category, due_date, score, max_score, status, term)
         VALUES (?, 'Math 6', 'Smith, John', 'Chapter 5 Test',
                 'Summative', '2024-12-08', '85', 100, 'Collected', 'Q2')
-    """, (student_id,))
+    """,
+        (student_id,),
+    )
 
     # Insert attendance summary
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO attendance_summary (student_id, term, attendance_rate, days_present,
                                        days_absent, tardies, total_days)
         VALUES (?, 'YTD', 88.6, 61, 9, 2, 70)
-    """, (student_id,))
+    """,
+        (student_id,),
+    )
 
     # Insert grades
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO grades (course_id, student_id, term, letter_grade, percent)
         VALUES (?, ?, 'Q2', 'B+', 87.5)
-    """, (math_course_id, student_id))
+    """,
+        (math_course_id, student_id),
+    )
 
     conn.commit()
     conn.close()
@@ -416,6 +434,7 @@ class TestDataQueriesIntegration:
         """get_student_id should work with the refactored implementation."""
         # Import after adding to path
         import sys
+
         sys.path.insert(0, str(Path(__file__).parent))
 
         from data_queries import get_student_id
@@ -426,6 +445,7 @@ class TestDataQueriesIntegration:
     def test_get_student_summary_uses_adapter(self, test_db_with_data: Path):
         """get_student_summary should work with the refactored implementation."""
         import sys
+
         sys.path.insert(0, str(Path(__file__).parent))
 
         from data_queries import get_student_summary
@@ -437,6 +457,7 @@ class TestDataQueriesIntegration:
     def test_get_missing_assignments_uses_adapter(self, test_db_with_data: Path):
         """get_missing_assignments should work with the refactored implementation."""
         import sys
+
         sys.path.insert(0, str(Path(__file__).parent))
 
         from data_queries import get_missing_assignments
@@ -447,6 +468,7 @@ class TestDataQueriesIntegration:
     def test_course_name_escaping(self, test_db_with_data: Path):
         """Course names with special characters should be escaped."""
         import sys
+
         sys.path.insert(0, str(Path(__file__).parent))
 
         from data_queries import get_course_details

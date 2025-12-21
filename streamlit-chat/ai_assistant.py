@@ -54,29 +54,17 @@ TOOLS = [
     {
         "name": "get_missing_assignments",
         "description": "Get all missing or late assignments for the student. Returns assignment name, course, teacher, due date.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
+        "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "get_current_grades",
         "description": "Get current grades for all courses. Returns course name, teacher, letter grade, and percentage.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
+        "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "get_attendance_summary",
         "description": "Get attendance summary including attendance rate, days absent, and tardies.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
+        "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "get_upcoming_assignments",
@@ -86,11 +74,11 @@ TOOLS = [
             "properties": {
                 "days": {
                     "type": "integer",
-                    "description": "Number of days to look ahead (default 7)"
+                    "description": "Number of days to look ahead (default 7)",
                 }
             },
-            "required": []
-        }
+            "required": [],
+        },
     },
     {
         "name": "get_course_details",
@@ -100,39 +88,27 @@ TOOLS = [
             "properties": {
                 "course_name": {
                     "type": "string",
-                    "description": "Name of the course (partial match supported)"
+                    "description": "Name of the course (partial match supported)",
                 }
             },
-            "required": ["course_name"]
-        }
+            "required": ["course_name"],
+        },
     },
     {
         "name": "get_student_summary",
         "description": "Get an overall summary of the student including grade level, courses, attendance, and missing work count.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
+        "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "get_all_courses",
         "description": "Get list of all courses the student is enrolled in.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
+        "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "get_assignment_stats",
         "description": "Get assignment completion statistics including total, completed, missing, and completion rate.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
-    }
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
 ]
 
 
@@ -182,7 +158,7 @@ def get_ai_response(
     student_context: dict,
     chat_history: list,
     api_key: str | None = None,
-    model: str | None = None
+    model: str | None = None,
 ) -> str:
     """Get AI response using Claude with tool use."""
 
@@ -211,25 +187,15 @@ Current student context:
     # Convert chat history to API format
     messages = []
     for msg in chat_history[-10:]:  # Keep last 10 messages for context
-        messages.append({
-            "role": msg["role"],
-            "content": msg["content"]
-        })
+        messages.append({"role": msg["role"], "content": msg["content"]})
 
     # Add current user message
-    messages.append({
-        "role": "user",
-        "content": user_message
-    })
+    messages.append({"role": "user", "content": user_message})
 
     try:
         # Initial API call with tools
         response = client.messages.create(
-            model=model,
-            max_tokens=1024,
-            system=system_with_context,
-            tools=TOOLS,
-            messages=messages
+            model=model, max_tokens=1024, system=system_with_context, tools=TOOLS, messages=messages
         )
 
         # Handle tool use loop
@@ -241,21 +207,17 @@ Current student context:
             tool_results = []
             for tool_use in tool_uses:
                 result = execute_tool(tool_use.name, tool_use.input, student_name)
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": tool_use.id,
-                    "content": json.dumps(result, default=str)
-                })
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tool_use.id,
+                        "content": json.dumps(result, default=str),
+                    }
+                )
 
             # Add assistant's response and tool results to messages
-            messages.append({
-                "role": "assistant",
-                "content": response.content
-            })
-            messages.append({
-                "role": "user",
-                "content": tool_results
-            })
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": tool_results})
 
             # Continue the conversation
             response = client.messages.create(
@@ -263,11 +225,11 @@ Current student context:
                 max_tokens=1024,
                 system=system_with_context,
                 tools=TOOLS,
-                messages=messages
+                messages=messages,
             )
 
         # Extract text response
-        text_blocks = [block.text for block in response.content if hasattr(block, 'text')]
+        text_blocks = [block.text for block in response.content if hasattr(block, "text")]
         return "\n".join(text_blocks) if text_blocks else "I couldn't generate a response."
 
     except Exception as e:
@@ -280,36 +242,18 @@ def get_quick_response(query_type: str, student_name: str = "Delilah") -> dict:
 
     if query_type == "missing":
         data = get_missing_assignments(db_path, student_name)
-        return {
-            "title": "Missing Assignments",
-            "data": data,
-            "count": len(data)
-        }
+        return {"title": "Missing Assignments", "data": data, "count": len(data)}
     elif query_type == "grades":
         data = get_current_grades(db_path, student_name)
-        return {
-            "title": "Current Grades",
-            "data": data,
-            "count": len(data)
-        }
+        return {"title": "Current Grades", "data": data, "count": len(data)}
     elif query_type == "attendance":
         data = get_attendance_summary(db_path, student_name)
-        return {
-            "title": "Attendance Summary",
-            "data": data
-        }
+        return {"title": "Attendance Summary", "data": data}
     elif query_type == "upcoming":
         data = get_upcoming_assignments(db_path, student_name, days=7)
-        return {
-            "title": "Due This Week",
-            "data": data,
-            "count": len(data)
-        }
+        return {"title": "Due This Week", "data": data, "count": len(data)}
     elif query_type == "summary":
         data = get_student_summary(db_path, student_name)
-        return {
-            "title": "Student Summary",
-            "data": data
-        }
+        return {"title": "Student Summary", "data": data}
     else:
         return {"error": f"Unknown query type: {query_type}"}

@@ -153,6 +153,24 @@ async def list_tools() -> list[Tool]:
                 "required": ["student_name"],
             },
         ),
+        Tool(
+            name="get_course_score_details",
+            description="Get detailed course score breakdown including category weights, assignment details with descriptions/standards/comments, and calculated weighted scores. Useful for understanding how a grade is calculated.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "student_name": {
+                        "type": "string",
+                        "description": "Student's first name",
+                    },
+                    "course_name": {
+                        "type": "string",
+                        "description": "Course name (partial match allowed)",
+                    },
+                },
+                "required": ["student_name", "course_name"],
+            },
+        ),
         # Attendance Tools
         Tool(
             name="get_attendance_summary",
@@ -175,6 +193,47 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {},
                 "required": [],
+            },
+        ),
+        Tool(
+            name="get_daily_attendance",
+            description="Get daily attendance records for a student. Shows each day's attendance status (Present, Absent, Tardy, Excused) with dates and codes. Can filter by date range.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "student_name": {
+                        "type": "string",
+                        "description": "Student's first name",
+                    },
+                    "start_date": {
+                        "type": "string",
+                        "description": "Optional start date filter (YYYY-MM-DD)",
+                    },
+                    "end_date": {
+                        "type": "string",
+                        "description": "Optional end date filter (YYYY-MM-DD)",
+                    },
+                    "days": {
+                        "type": "integer",
+                        "description": "Number of days to retrieve (default: 30)",
+                        "default": 30,
+                    },
+                },
+                "required": ["student_name"],
+            },
+        ),
+        Tool(
+            name="get_attendance_patterns",
+            description="Analyze attendance patterns by day of week. Identifies which days have the most absences or tardies (e.g., 'frequently absent on Mondays'). Also shows attendance streaks.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "student_name": {
+                        "type": "string",
+                        "description": "Student's first name",
+                    },
+                },
+                "required": ["student_name"],
             },
         ),
         # Insight Tools
@@ -225,6 +284,28 @@ async def list_tools() -> list[Tool]:
             },
         ),
         # Teacher Tools
+        Tool(
+            name="get_teacher_comments",
+            description="Get teacher comments for a student. Shows feedback from teachers organized by course and term. Can filter by course or term.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "student_name": {
+                        "type": "string",
+                        "description": "Student's first name",
+                    },
+                    "course_name": {
+                        "type": "string",
+                        "description": "Optional: filter to specific course (partial match)",
+                    },
+                    "term": {
+                        "type": "string",
+                        "description": "Optional: filter to specific term (e.g., 'Q1', 'Q2', 'S1')",
+                    },
+                },
+                "required": ["student_name"],
+            },
+        ),
         Tool(
             name="list_teachers",
             description="List all teachers with their contact information. Shows name, email, and courses taught.",
@@ -384,10 +465,24 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             )
         elif name == "get_assignment_completion_rates":
             return await handle_completion_rates(repo, arguments["student_name"])
+        elif name == "get_course_score_details":
+            return await handle_course_score_details(
+                repo, arguments["student_name"], arguments["course_name"]
+            )
         elif name == "get_attendance_summary":
             return await handle_attendance_summary(repo, arguments["student_name"])
         elif name == "get_attendance_alerts":
             return await handle_attendance_alerts(repo)
+        elif name == "get_daily_attendance":
+            return await handle_daily_attendance(
+                repo,
+                arguments["student_name"],
+                arguments.get("start_date"),
+                arguments.get("end_date"),
+                arguments.get("days", 30),
+            )
+        elif name == "get_attendance_patterns":
+            return await handle_attendance_patterns(repo, arguments["student_name"])
         elif name == "get_action_items":
             return await handle_action_items(repo, arguments.get("student_name", "all"))
         elif name == "generate_weekly_report":
@@ -395,6 +490,13 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "prepare_teacher_meeting":
             return await handle_teacher_meeting(
                 repo, arguments["student_name"], arguments["course_name"]
+            )
+        elif name == "get_teacher_comments":
+            return await handle_teacher_comments(
+                repo,
+                arguments["student_name"],
+                arguments.get("course_name"),
+                arguments.get("term"),
             )
         elif name == "list_teachers":
             return await handle_list_teachers(repo)
@@ -599,6 +701,103 @@ async def handle_completion_rates(repo: Repository, student_name: str) -> list[T
     return [TextContent(type="text", text=result)]
 
 
+async def handle_course_score_details(
+    repo: Repository, student_name: str, course_name: str
+) -> list[TextContent]:
+    """Get detailed course score breakdown with category weights and assignment details."""
+    student = repo.get_student_by_name(student_name)
+    if not student:
+        return [TextContent(type="text", text=f"No student found matching '{student_name}'.")]
+
+    details = repo.get_course_score_details_by_name(student["id"], course_name)
+    if not details:
+        return [
+            TextContent(
+                type="text", text=f"No course found matching '{course_name}' for {student_name}."
+            )
+        ]
+
+    course = details["course"]
+    categories = details["categories"]
+    assignments = details["assignments"]
+
+    result = f"## Course Score Details: {course['course_name']}\n\n"
+    result += f"**Teacher**: {course.get('teacher_name', 'N/A')}\n"
+    result += f"**Period**: {course.get('expression', 'N/A')}\n\n"
+
+    # Category weights section
+    if categories:
+        result += "### Category Weights\n\n"
+        result += "| Category | Weight | Points Earned | Points Possible | Category % |\n"
+        result += "|----------|--------|---------------|-----------------|------------|\n"
+
+        total_weighted = 0.0
+        for cat in categories:
+            weight = cat.get("weight") or 0
+            earned = cat.get("points_earned")
+            possible = cat.get("points_possible")
+            cat_pct = cat.get("category_percent")
+
+            earned_str = f"{earned:.1f}" if earned is not None else "-"
+            possible_str = f"{possible:.1f}" if possible is not None else "-"
+            pct_str = f"{cat_pct:.1f}%" if cat_pct is not None else "-"
+
+            result += f"| {cat['category_name']} | {weight:.0f}% | {earned_str} | {possible_str} | {pct_str} |\n"
+
+            # Calculate weighted contribution
+            if cat_pct is not None and weight > 0:
+                total_weighted += cat_pct * weight / 100
+
+        if total_weighted > 0:
+            result += f"\n**Calculated Weighted Grade**: {total_weighted:.1f}%\n"
+        result += "\n"
+    else:
+        result += "*No category weights available*\n\n"
+
+    # Assignments section
+    if assignments:
+        result += "### Assignments\n\n"
+        result += "| Assignment | Category | Due Date | Score | % | Grade | Status |\n"
+        result += "|------------|----------|----------|-------|---|-------|--------|\n"
+
+        for a in assignments[:20]:  # Limit to 20 for readability
+            name = a.get("assignment_name", "N/A")[:30]
+            cat = a.get("category", "-")[:10]
+            due = a.get("due_date", "-")
+            score = a.get("score", "-") or "-"
+            pct = a.get("percent")
+            pct_str = f"{pct:.0f}%" if pct else "-"
+            grade = a.get("letter_grade", "-") or "-"
+            status = a.get("status", "-") or "-"
+
+            result += f"| {name} | {cat} | {due} | {score} | {pct_str} | {grade} | {status} |\n"
+
+        if len(assignments) > 20:
+            result += f"\n*... and {len(assignments) - 20} more assignments*\n"
+
+        # Show assignment details if any have descriptions/standards/comments
+        detailed = [
+            a
+            for a in assignments
+            if a.get("description") or a.get("standards") or a.get("comments")
+        ]
+        if detailed:
+            result += "\n### Assignment Details\n\n"
+            for a in detailed[:10]:
+                result += f"**{a['assignment_name']}**\n"
+                if a.get("description"):
+                    result += f"- Description: {a['description']}\n"
+                if a.get("standards"):
+                    result += f"- Standards: {a['standards']}\n"
+                if a.get("comments"):
+                    result += f"- Comments: {a['comments']}\n"
+                result += "\n"
+    else:
+        result += "*No assignments found for this course*\n"
+
+    return [TextContent(type="text", text=result)]
+
+
 async def handle_attendance_summary(repo: Repository, student_name: str) -> list[TextContent]:
     """Get attendance summary."""
     student = repo.get_student_by_name(student_name)
@@ -637,6 +836,129 @@ async def handle_attendance_alerts(repo: Repository) -> list[TextContent]:
         emoji = "🔴" if level == "CRITICAL" else "🟡"
         result += f"{emoji} **{a['student_name']}**: {a['attendance_rate']:.1f}% ({level})\n"
         result += f"   - Absences: {a['days_absent']}, Tardies: {a['tardies']}\n\n"
+
+    return [TextContent(type="text", text=result)]
+
+
+async def handle_daily_attendance(
+    repo: Repository,
+    student_name: str,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    days: int,
+) -> list[TextContent]:
+    """Get daily attendance records."""
+    student = repo.get_student_by_name(student_name)
+    if not student:
+        return [TextContent(type="text", text=f"No student found matching '{student_name}'.")]
+
+    records = repo.get_daily_attendance(
+        student["id"],
+        start_date=start_date,
+        end_date=end_date,
+        limit=days,
+    )
+
+    if not records:
+        return [TextContent(type="text", text=f"No daily attendance records for {student_name}.")]
+
+    result = f"## Daily Attendance for {student['first_name']}\n\n"
+
+    # Group by status for summary
+    status_counts = {"Present": 0, "Absent": 0, "Tardy": 0, "Excused": 0, "Unknown": 0}
+    for r in records:
+        status = r.get("status", "Unknown")
+        if status in status_counts:
+            status_counts[status] += 1
+        else:
+            status_counts["Unknown"] += 1
+
+    # Summary
+    total = len(records)
+    result += f"**Summary** (last {total} days):\n"
+    result += f"- Present: {status_counts['Present']}\n"
+    result += f"- Absent: {status_counts['Absent']}\n"
+    result += f"- Tardy: {status_counts['Tardy']}\n"
+    result += f"- Excused: {status_counts['Excused']}\n\n"
+
+    # Detailed records table
+    result += "### Recent Records\n\n"
+    result += "| Date | Status | Code |\n"
+    result += "|------|--------|------|\n"
+
+    for r in records[:30]:  # Limit display to 30 for readability
+        date = r.get("date", "N/A")
+        status = r.get("status", "N/A")
+        code = r.get("code", "")
+        status_emoji = {
+            "Present": "",
+            "Absent": "X",
+            "Tardy": "T",
+            "Excused": "E",
+        }.get(status, "?")
+        result += f"| {date} | {status} {status_emoji} | {code} |\n"
+
+    if len(records) > 30:
+        result += f"\n*... and {len(records) - 30} more records*\n"
+
+    return [TextContent(type="text", text=result)]
+
+
+async def handle_attendance_patterns(repo: Repository, student_name: str) -> list[TextContent]:
+    """Analyze attendance patterns."""
+    student = repo.get_student_by_name(student_name)
+    if not student:
+        return [TextContent(type="text", text=f"No student found matching '{student_name}'.")]
+
+    patterns = repo.get_attendance_patterns(student["id"])
+    streaks = repo.get_attendance_streak(student["id"])
+
+    if not patterns and streaks["current_streak_days"] == 0:
+        return [TextContent(type="text", text=f"No attendance pattern data for {student_name}.")]
+
+    result = f"## Attendance Patterns for {student['first_name']}\n\n"
+
+    # Streak information
+    result += "### Current Status\n"
+    if streaks["current_streak_type"] == "present":
+        result += f"Currently on a **{streaks['current_streak_days']}-day present streak**\n\n"
+    elif streaks["current_streak_type"] == "absent":
+        result += f"Currently on a **{streaks['current_streak_days']}-day absence streak**\n\n"
+    else:
+        result += "No current streak\n\n"
+
+    result += f"- Longest present streak: {streaks['longest_present_streak']} days\n"
+    result += f"- Longest absence streak: {streaks['longest_absent_streak']} days\n\n"
+
+    # Day of week analysis
+    if patterns:
+        result += "### By Day of Week\n\n"
+        result += "| Day | Present | Absent | Tardy | Rate |\n"
+        result += "|-----|---------|--------|-------|------|\n"
+
+        problem_days = []
+        for p in patterns:
+            day_name = p.get("day_name", "?")
+            present = p.get("present_count", 0)
+            absent = p.get("absence_count", 0)
+            tardy = p.get("tardy_count", 0)
+            rate = p.get("attendance_rate", 100)
+
+            result += f"| {day_name} | {present} | {absent} | {tardy} | {rate:.0f}% |\n"
+
+            # Track problem days (>20% absences)
+            total = p.get("total_records", 1)
+            if total > 0 and absent / total >= 0.2:
+                problem_days.append((day_name, absent, total))
+
+        result += "\n"
+
+        # Highlight concerning patterns
+        if problem_days:
+            result += "### Concerning Patterns\n\n"
+            for day, absences, total in sorted(problem_days, key=lambda x: -x[1] / x[2]):
+                pct = (absences / total) * 100
+                result += f"- Frequently absent on **{day}**: {absences}/{total} ({pct:.0f}%)\n"
 
     return [TextContent(type="text", text=result)]
 
@@ -835,6 +1157,62 @@ async def handle_database_status(repo: Repository) -> list[TextContent]:
 
 
 # ==================== TEACHER HANDLERS ====================
+
+
+async def handle_teacher_comments(
+    repo: Repository,
+    student_name: str,
+    course_name: Optional[str] = None,
+    term: Optional[str] = None,
+) -> list[TextContent]:
+    """Get teacher comments for a student."""
+    student = repo.get_student_by_name(student_name)
+    if not student:
+        return [TextContent(type="text", text=f"No student found matching '{student_name}'.")]
+
+    comments = repo.get_teacher_comments(
+        student_id=student["id"],
+        course_name=course_name,
+        term=term,
+    )
+
+    if not comments:
+        filter_msg = ""
+        if course_name:
+            filter_msg += f" for course '{course_name}'"
+        if term:
+            filter_msg += f" in term '{term}'"
+        return [
+            TextContent(
+                type="text",
+                text=f"No teacher comments found for {student['first_name']}{filter_msg}.",
+            )
+        ]
+
+    result = f"## Teacher Comments for {student['first_name']}\n\n"
+
+    # Group by term for better organization
+    comments_by_term: dict[str, list] = {}
+    for c in comments:
+        t = c.get("term", "Unknown")
+        if t not in comments_by_term:
+            comments_by_term[t] = []
+        comments_by_term[t].append(c)
+
+    for t in sorted(comments_by_term.keys(), reverse=True):
+        result += f"### {t}\n\n"
+        for c in comments_by_term[t]:
+            teacher = c.get("teacher_name", "Unknown Teacher")
+            course = c.get("course_name", "Unknown Course")
+            comment_text = c.get("comment", "")
+
+            result += f"**{course}** ({teacher})\n"
+            result += f"> {comment_text}\n\n"
+
+    # Summary
+    result += f"---\n*Total: {len(comments)} comment(s)*"
+
+    return [TextContent(type="text", text=result)]
 
 
 async def handle_list_teachers(repo: Repository) -> list[TextContent]:

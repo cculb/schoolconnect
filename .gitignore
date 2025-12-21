@@ -1,6 +1,8 @@
 # Environment and secrets
 .env
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 
 # Python

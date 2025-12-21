@@ -125,9 +125,7 @@ def get_attendance_summary(db_path: str, student_name: str) -> dict:
     return adapter.get_attendance_summary(student_name)
 
 
-def get_upcoming_assignments(
-    db_path: str, student_name: str, days: int = 7
-) -> list[dict]:
+def get_upcoming_assignments(db_path: str, student_name: str, days: int = 7) -> list[dict]:
     """Get assignments due in the next N days.
 
     Args:

@@ -11,7 +11,7 @@ GROUND_TRUTH = {
     "missing_assignments": 2,
     "missing_assignment_names": [
         "Atomic Structure Knowledge Check",
-        "FORMATIVE - Edpuzzle on Autocracies"
+        "FORMATIVE - Edpuzzle on Autocracies",
     ],
     "attendance_rate": 88.6,
     "days_absent": 9,
@@ -42,20 +42,23 @@ def update_attendance_to_ground_truth(db_path: Path) -> None:
     if result:
         student_id = result[0]
         # Update attendance to match ground truth
-        cursor.execute("""
+        cursor.execute(
+            """
             UPDATE attendance_summary
             SET attendance_rate = ?,
                 days_absent = ?,
                 tardies = ?,
                 total_days = ?
             WHERE student_id = ?
-        """, (
-            GROUND_TRUTH["attendance_rate"],
-            GROUND_TRUTH["days_absent"],
-            GROUND_TRUTH["tardies"],
-            70,  # Total school days so far
-            student_id
-        ))
+        """,
+            (
+                GROUND_TRUTH["attendance_rate"],
+                GROUND_TRUTH["days_absent"],
+                GROUND_TRUTH["tardies"],
+                70,  # Total school days so far
+                student_id,
+            ),
+        )
         conn.commit()
         print(f"Updated attendance for student_id={student_id}")
     else:
@@ -151,10 +154,18 @@ def create_test_database(db_path: Path) -> None:
     """)
 
     # Insert student
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT OR IGNORE INTO students (powerschool_id, first_name, last_name, grade_level)
         VALUES (?, ?, ?, ?)
-    """, ("55260", GROUND_TRUTH["first_name"], GROUND_TRUTH["last_name"], str(GROUND_TRUTH["grade_level"])))
+    """,
+        (
+            "55260",
+            GROUND_TRUTH["first_name"],
+            GROUND_TRUTH["last_name"],
+            str(GROUND_TRUTH["grade_level"]),
+        ),
+    )
 
     student_id = cursor.lastrowid or 1
 
@@ -175,33 +186,85 @@ def create_test_database(db_path: Path) -> None:
     ]
 
     for course_name, teacher, email, room in courses:
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO courses (student_id, course_name, teacher_name, teacher_email, room, term)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (student_id, course_name, teacher, email, room, "Q2"))
+        """,
+            (student_id, course_name, teacher, email, room, "Q2"),
+        )
 
     # Insert missing assignments
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO assignments (student_id, course_name, teacher_name, assignment_name, category, due_date, status, term)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (student_id, "Science (grade 6)", "Johnson, Mary", "Atomic Structure Knowledge Check", "Formative", "2024-12-10", "Missing", "Q2"))
+    """,
+        (
+            student_id,
+            "Science (grade 6)",
+            "Johnson, Mary",
+            "Atomic Structure Knowledge Check",
+            "Formative",
+            "2024-12-10",
+            "Missing",
+            "Q2",
+        ),
+    )
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO assignments (student_id, course_name, teacher_name, assignment_name, category, due_date, status, term)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (student_id, "Social Studies (grade 6)", "Williams, Robert", "FORMATIVE - Edpuzzle on Autocracies", "Formative", "2024-12-12", "Missing", "Q2"))
+    """,
+        (
+            student_id,
+            "Social Studies (grade 6)",
+            "Williams, Robert",
+            "FORMATIVE - Edpuzzle on Autocracies",
+            "Formative",
+            "2024-12-12",
+            "Missing",
+            "Q2",
+        ),
+    )
 
     # Insert some completed assignments
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO assignments (student_id, course_name, teacher_name, assignment_name, category, due_date, score, max_score, status, term)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (student_id, "Math 6", "Smith, John", "Chapter 5 Test", "Summative", "2024-12-08", "85", 100, "Collected", "Q2"))
+    """,
+        (
+            student_id,
+            "Math 6",
+            "Smith, John",
+            "Chapter 5 Test",
+            "Summative",
+            "2024-12-08",
+            "85",
+            100,
+            "Collected",
+            "Q2",
+        ),
+    )
 
     # Insert attendance summary
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO attendance_summary (student_id, term, attendance_rate, days_present, days_absent, tardies, total_days)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (student_id, "YTD", GROUND_TRUTH["attendance_rate"], 61, GROUND_TRUTH["days_absent"], GROUND_TRUTH["tardies"], 70))
+    """,
+        (
+            student_id,
+            "YTD",
+            GROUND_TRUTH["attendance_rate"],
+            61,
+            GROUND_TRUTH["days_absent"],
+            GROUND_TRUTH["tardies"],
+            70,
+        ),
+    )
 
     # Insert grades
     course_grades = [
@@ -216,10 +279,13 @@ def create_test_database(db_path: Path) -> None:
     ]
 
     for idx, (course_name, grade, percent) in enumerate(course_grades, 1):
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO grades (course_id, student_id, term, letter_grade, percent)
             VALUES (?, ?, ?, ?, ?)
-        """, (idx, student_id, "Q2", grade, percent))
+        """,
+            (idx, student_id, "Q2", grade, percent),
+        )
 
     conn.commit()
     conn.close()
@@ -243,17 +309,23 @@ def verify_ground_truth(db_path: Path) -> dict:
         student_id = student["id"]
 
         # Check missing assignments
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) as count FROM assignments
             WHERE student_id = ? AND status = 'Missing'
-        """, (student_id,))
+        """,
+            (student_id,),
+        )
         results["missing_count"] = cursor.fetchone()["count"]
 
         # Check attendance
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT attendance_rate, days_absent, tardies
             FROM attendance_summary WHERE student_id = ?
-        """, (student_id,))
+        """,
+            (student_id,),
+        )
         att = cursor.fetchone()
         if att:
             results["attendance_rate"] = att["attendance_rate"]
@@ -261,9 +333,12 @@ def verify_ground_truth(db_path: Path) -> dict:
             results["tardies"] = att["tardies"]
 
         # Check courses
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(DISTINCT course_name) as count FROM courses WHERE student_id = ?
-        """, (student_id,))
+        """,
+            (student_id,),
+        )
         results["courses_count"] = cursor.fetchone()["count"]
 
     conn.close()

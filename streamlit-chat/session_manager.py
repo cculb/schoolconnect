@@ -228,9 +228,7 @@ def render_session_warning(token: str) -> None:
             "Any activity will extend your session."
         )
     elif remaining == 0:
-        st.error(
-            "Your session has expired. Please log in again."
-        )
+        st.error("Your session has expired. Please log in again.")
 
 
 def render_logout_button(token: str) -> bool:
