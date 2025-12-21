@@ -561,7 +561,9 @@ def render_main_app() -> None:
             st.error("You are not authorized to view this student's data.")
             return
 
-        summary = get_cached_student_summary(db_path, st.session_state.student_name)
+        # Show loading indicator for first data load
+        with st.spinner("Loading student data..."):
+            summary = get_cached_student_summary(db_path, st.session_state.student_name)
 
         if "error" not in summary:
             st.markdown("### 📊 Dashboard Overview")

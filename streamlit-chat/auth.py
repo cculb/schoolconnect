@@ -260,9 +260,13 @@ def render_login_page() -> Optional[dict]:
                     st.error("Please enter both username and password.")
                     return None
 
-                result = authenticate(username, password)
+                # Show loading indicator during authentication
+                with st.spinner("Authenticating..."):
+                    result = authenticate(username, password)
 
                 if result:
+                    # Show success message briefly before rerun
+                    st.success("Login successful! Loading your dashboard...")
                     return result
                 else:
                     st.error(get_login_error_message("invalid_credentials"))
