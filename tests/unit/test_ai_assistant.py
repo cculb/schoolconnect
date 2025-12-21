@@ -1,6 +1,12 @@
 """Tests for AI assistant retry logic and error handling."""
 
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+# Add streamlit-chat directory to path for imports
+STREAMLIT_CHAT_DIR = Path(__file__).parent.parent.parent / "streamlit-chat"
+sys.path.insert(0, str(STREAMLIT_CHAT_DIR))
 
 from ai_assistant import (
     ClientAPIError,
@@ -17,6 +23,9 @@ from anthropic import (
     RateLimitError,
 )
 from httpx import Request, Response
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 class TestRetryOnRateLimit:
