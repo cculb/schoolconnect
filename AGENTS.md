@@ -112,6 +112,8 @@ def test_my_new_button(self, streamlit_page: Page):
 | `ui-only` | Changes to Streamlit UI |
 | `scraper-only` | Changes to scraper code |
 | `mcp-only` | Changes to MCP server |
+| `alerts-only` | Changes to alerts system |
+| `ground-truth` | Rebuild ground truth data |
 | `full-validation` | Before completing a task |
 
 ## Test File Locations
@@ -121,6 +123,7 @@ def test_my_new_button(self, streamlit_page: Page):
 | Unit tests | `tests/unit/*.py` |
 | Integration | `tests/integration/*.py` |
 | Scraper E2E | `tests/e2e/test_scraper.py` |
+| Multi-student | `tests/e2e/test_multi_student_scraper.py` |
 | MCP server | `tests/e2e/test_mcp_tools.py` |
 | Alerts | `tests/e2e/test_alerts.py` |
 | UI (Streamlit) | `tests/e2e/test_streamlit_ui.py` |
@@ -129,10 +132,12 @@ def test_my_new_button(self, streamlit_page: Page):
 
 | Class | Purpose |
 |-------|---------|
+| TestLoginPage | Login page render, form elements, demo credentials |
 | TestPageLoad | Initial render, title, no errors |
-| TestSidebarSettings | API key, model dropdown, student name |
+| TestSidebarSettings | Model dropdown, logout button, clear chat button |
 | TestQuickActions | 4 quick action buttons |
-| TestWelcomeInfoBox | Student summary display |
+| TestDashboard | Dashboard metrics (courses, missing work, attendance) |
+| TestWelcomeSection | Welcome message and tips when chat is empty |
 | TestConversationStarters | Dynamic starter buttons |
 | TestChatInterface | Chat input and messages |
 

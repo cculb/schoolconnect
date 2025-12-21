@@ -88,6 +88,8 @@ cat /tmp/results/test-summary.json
 | `full-validation` | Final verification |
 | `scraper-only` | Changes to scraper code |
 | `mcp-only` | Changes to MCP server |
+| `alerts-only` | Alert detection changes |
+| `ground-truth` | Validate against known data |
 
 ## UI Testing
 
@@ -118,10 +120,12 @@ gh run watch $(gh run list --repo cculb/schoolconnect --limit 1 --json databaseI
 
 | Class | Tests |
 |-------|-------|
+| TestLoginPage | Login form, credentials, loading indicator |
 | TestPageLoad | App loads, title, subtitle |
-| TestSidebarSettings | API key, model dropdown, student name |
+| TestSidebarSettings | Settings, model dropdown, logout |
 | TestQuickActions | 4 action buttons work |
-| TestWelcomeInfoBox | Student summary display |
+| TestDashboard | Dashboard metrics, courses, attendance |
+| TestWelcomeSection | Welcome message, tips |
 | TestConversationStarters | Dynamic starter buttons |
 | TestChatInterface | Chat input functionality |
 
@@ -141,22 +145,28 @@ When adding a UI feature:
 src/
   scraper/       # PowerSchool web scraper
   mcp_server/    # MCP server for Claude access
-  models/        # SQLAlchemy models
-  repositories/  # Data access layer
+  database/      # Database layer (schema, views, repository)
+  cli/           # Command line interface
+  logutils/      # Logging utilities
 tests/
   unit/          # Fast, isolated tests
   integration/   # Component tests
   e2e/           # Full E2E with live PowerSchool
 scripts/
+  scrape_full.py            # Main scraper entry point
+  load_data.py              # Load scraped data into DB
   generate_test_summary.py  # Creates agent-readable JSON
   generate_agent_report.py  # Creates detailed reports
+  validate_ground_truth.py  # Ground truth validation
 ```
 
 ## Key Files
 
-- `src/scraper/powerschool_scraper.py` - Main scraper logic
+- `scripts/scrape_full.py` - Main scraper entry point
+- `src/scraper/auth.py` - PowerSchool authentication
 - `src/mcp_server/server.py` - MCP server implementation
-- `src/repositories/*.py` - Database queries
+- `src/database/repository.py` - Database queries and access
+- `src/database/schema.sql` - Database schema definition
 - `tests/e2e/test_*.py` - E2E test suites
 
 ## Environment
