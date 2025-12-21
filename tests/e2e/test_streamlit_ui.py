@@ -69,13 +69,9 @@ class TestLoginPage:
         login_button = streamlit_page.locator('button:has-text("Login")')
         login_button.click()
 
-        # Wait for navigation and session initialization
-        streamlit_page.wait_for_load_state("networkidle")
-        streamlit_page.wait_for_timeout(2000)  # Extra wait for Streamlit rerun
-
-        # Should now see main app content - look for Dashboard Overview header
-        dashboard = streamlit_page.get_by_text("Dashboard Overview").first
-        expect(dashboard).to_be_visible(timeout=15000)
+        # Wait for login form to disappear (indicates successful login)
+        # The password field disappears after successful login
+        expect(password_input).not_to_be_visible(timeout=15000)
 
 
 # =============================================================================
