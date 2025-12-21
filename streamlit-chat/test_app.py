@@ -361,6 +361,136 @@ class TestAIAssistant:
 
             assert "Error" in response
 
+    def test_max_iteration_limit_enforced(self, test_db_path: str, primary_student: dict):
+        """AI response enforces maximum iteration limit to prevent infinite loops."""
+        from ai_assistant import MAX_TOOL_ITERATIONS, get_ai_response
+
+        # Create mock that always returns tool_use to trigger infinite loop
+        mock_tool_use = MagicMock()
+        mock_tool_use.type = "tool_use"
+        mock_tool_use.id = "test-tool-id"
+        mock_tool_use.name = "get_missing_assignments"
+        mock_tool_use.input = {}
+
+        mock_response = MagicMock()
+        mock_response.stop_reason = "tool_use"
+        mock_response.content = [mock_tool_use]
+
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = mock_response
+
+        student_name = primary_student.get("first_name", "TestStudent")
+
+        with patch("ai_assistant.Anthropic", return_value=mock_client):
+            with patch("ai_assistant.get_db_path", return_value=test_db_path):
+                response = get_ai_response(
+                    "What are the missing assignments?",
+                    {"student_name": student_name},
+                    [],
+                    api_key="test-key",
+                )
+
+                # Should return error message
+                assert "Maximum tool iteration limit" in response
+                assert str(MAX_TOOL_ITERATIONS) in response
+
+                # Should have called create exactly MAX_TOOL_ITERATIONS + 1 times
+                # (initial call + MAX_TOOL_ITERATIONS loop iterations before hitting limit)
+                assert mock_client.messages.create.call_count == MAX_TOOL_ITERATIONS + 1
+
+    def test_max_iteration_limit_allows_normal_queries(
+        self, test_db_path: str, primary_student: dict
+    ):
+        """Normal queries with <MAX_TOOL_ITERATIONS iterations work correctly."""
+        from ai_assistant import get_ai_response
+
+        # Create mock for normal tool use flow (2 iterations)
+        mock_tool_use = MagicMock()
+        mock_tool_use.type = "tool_use"
+        mock_tool_use.id = "test-tool-id"
+        mock_tool_use.name = "get_missing_assignments"
+        mock_tool_use.input = {}
+
+        mock_text_block = MagicMock()
+        mock_text_block.type = "text"
+        mock_text_block.text = "Here are the missing assignments..."
+
+        # First response triggers tool use
+        mock_response_1 = MagicMock()
+        mock_response_1.stop_reason = "tool_use"
+        mock_response_1.content = [mock_tool_use]
+
+        # Second response is final
+        mock_response_2 = MagicMock()
+        mock_response_2.stop_reason = "end_turn"
+        mock_response_2.content = [mock_text_block]
+
+        mock_client = MagicMock()
+        mock_client.messages.create.side_effect = [mock_response_1, mock_response_2]
+
+        student_name = primary_student.get("first_name", "TestStudent")
+
+        with patch("ai_assistant.Anthropic", return_value=mock_client):
+            with patch("ai_assistant.get_db_path", return_value=test_db_path):
+                response = get_ai_response(
+                    "What are the missing assignments?",
+                    {"student_name": student_name},
+                    [],
+                    api_key="test-key",
+                )
+
+                # Should get normal response, not error
+                assert "Maximum tool iteration limit" not in response
+                assert "Here are the missing assignments" in response
+                # Should have called create twice
+                assert mock_client.messages.create.call_count == 2
+
+    def test_max_iteration_boundary_case(self, test_db_path: str, primary_student: dict):
+        """Verify exactly MAX_TOOL_ITERATIONS iterations are allowed."""
+        from ai_assistant import MAX_TOOL_ITERATIONS, get_ai_response
+
+        # Create mock that returns tool_use for exactly MAX_TOOL_ITERATIONS-1 times,
+        # then returns end_turn
+        mock_tool_use = MagicMock()
+        mock_tool_use.type = "tool_use"
+        mock_tool_use.id = "test-tool-id"
+        mock_tool_use.name = "get_missing_assignments"
+        mock_tool_use.input = {}
+
+        mock_text_block = MagicMock()
+        mock_text_block.type = "text"
+        mock_text_block.text = "Final response"
+
+        mock_response_tool = MagicMock()
+        mock_response_tool.stop_reason = "tool_use"
+        mock_response_tool.content = [mock_tool_use]
+
+        mock_response_final = MagicMock()
+        mock_response_final.stop_reason = "end_turn"
+        mock_response_final.content = [mock_text_block]
+
+        # Create side_effect: MAX_TOOL_ITERATIONS-1 tool_use responses, then final
+        side_effects = [mock_response_tool] * (MAX_TOOL_ITERATIONS - 1) + [mock_response_final]
+
+        mock_client = MagicMock()
+        mock_client.messages.create.side_effect = side_effects
+
+        student_name = primary_student.get("first_name", "TestStudent")
+
+        with patch("ai_assistant.Anthropic", return_value=mock_client):
+            with patch("ai_assistant.get_db_path", return_value=test_db_path):
+                response = get_ai_response(
+                    "What are the missing assignments?",
+                    {"student_name": student_name},
+                    [],
+                    api_key="test-key",
+                )
+
+                # Should complete successfully without hitting limit
+                assert "Maximum tool iteration limit" not in response
+                assert "Final response" in response
+                assert mock_client.messages.create.call_count == MAX_TOOL_ITERATIONS
+
 
 # =============================================================================
 # Error Handling Tests
