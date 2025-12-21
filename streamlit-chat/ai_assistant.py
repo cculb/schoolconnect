@@ -32,7 +32,12 @@ from tenacity import (
     wait_exponential,
 )
 
-# Set up logging for retry attempts
+# Configure logging for this module
+# Basic config ensures logs are visible in production
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
@@ -203,6 +208,10 @@ AVAILABLE_MODELS = {
 
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
 
+# Maximum number of tool use iterations to prevent infinite loops
+# This protects against runaway API credit consumption
+MAX_TOOL_ITERATIONS = 10
+
 
 TOOLS = [
     {
@@ -369,8 +378,16 @@ Current student context:
         # Initial API call with tools (with retry)
         response = _make_api_call(client, model, system_with_context, messages)
 
-        # Handle tool use loop
+        # Handle tool use loop with iteration limit to prevent infinite loops
+        tool_iterations = 0
         while response.stop_reason == "tool_use":
+            tool_iterations += 1
+            if tool_iterations > MAX_TOOL_ITERATIONS:
+                logger.warning(
+                    f"Tool use loop exceeded {MAX_TOOL_ITERATIONS} iterations, stopping"
+                )
+                return "I've been working on your request but it's taking longer than expected. Please try rephrasing your question."
+
             # Find tool use blocks
             tool_uses = [block for block in response.content if block.type == "tool_use"]
 
@@ -404,9 +421,10 @@ Current student context:
         return f"Error: {categorized.user_message}"
 
     except Exception as e:
-        # Generic error handling
-        logger.error(f"Unexpected error: {e}")
-        return f"Error communicating with AI: {str(e)}"
+        # Generic error handling - log full error but return sanitized message
+        # to avoid leaking sensitive information (API keys, internal paths, etc.)
+        logger.error(f"Unexpected error: {type(e).__name__}: {e}")
+        return "An unexpected error occurred. Please try again later."
 
 
 def get_quick_response(query_type: str, student_name: str = "Delilah") -> dict:
