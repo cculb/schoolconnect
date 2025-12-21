@@ -161,9 +161,7 @@ class TestChatInterface:
     def test_chat_input_has_placeholder(self, streamlit_page: Page):
         """Verify placeholder text is correct."""
         chat_input = streamlit_page.locator('[data-testid="stChatInput"] textarea')
-        expect(chat_input).to_have_attribute(
-            "placeholder", "Ask about your child's progress..."
-        )
+        expect(chat_input).to_have_attribute("placeholder", "Ask about your child's progress...")
 
     def test_welcome_box_hidden_after_message(self, streamlit_page: Page):
         """Verify welcome box disappears after sending a message."""
