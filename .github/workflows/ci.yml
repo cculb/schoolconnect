@@ -18,6 +18,7 @@ on:
           - scraper-only
           - mcp-only
           - alerts-only
+          - ui-only
           - ground-truth
           - quick-check
           - unit-only
@@ -307,6 +308,7 @@ jobs:
         run: |
           TASK="${{ github.event.inputs.agent_task }}"
           echo "Running task: $TASK"
+          mkdir -p reports/screenshots
 
           case "$TASK" in
             "scraper-only")
@@ -317,6 +319,12 @@ jobs:
               ;;
             "alerts-only")
               pytest tests/e2e/test_alerts.py -v --tb=long --junitxml=reports/results.xml || true
+              ;;
+            "ui-only")
+              # Seed database for UI tests
+              cd streamlit-chat && python seed_data.py && cd ..
+              # Run UI tests
+              pytest tests/e2e/test_streamlit_ui.py -v --tb=long --junitxml=reports/results.xml || true
               ;;
             "ground-truth")
               python scripts/validate_ground_truth.py | tee reports/ground-truth.txt
@@ -334,6 +342,14 @@ jobs:
               pytest tests/e2e/ -v --tb=long --junitxml=reports/results.xml || true
               ;;
           esac
+
+      - name: Upload screenshots on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-screenshots-${{ github.run_id }}
+          path: reports/screenshots/
+          retention-days: 7
 
       - name: Generate agent report
         if: always()

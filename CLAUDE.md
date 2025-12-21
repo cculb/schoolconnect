@@ -58,9 +58,56 @@ cat /tmp/results/test-summary.json
 | `quick-check` | After each change (fast) |
 | `unit-only` | Testing isolated logic |
 | `integration-only` | Testing component interactions |
+| `ui-only` | Changes to Streamlit UI |
 | `full-validation` | Final verification |
 | `scraper-only` | Changes to scraper code |
 | `mcp-only` | Changes to MCP server |
+
+## UI Testing
+
+### Running UI Tests Locally
+
+```bash
+# Seed database with test data
+cd streamlit-chat && python seed_data.py && cd ..
+
+# Run UI tests
+pytest tests/e2e/test_streamlit_ui.py -v
+
+# Debug mode (visible browser)
+PWDEBUG=1 pytest tests/e2e/test_streamlit_ui.py -v -k "test_page_loads"
+```
+
+### CI Validation for UI Changes
+
+```bash
+# Trigger UI-only validation
+gh workflow run "CI Pipeline" --repo cculb/schoolconnect -f agent_task=ui-only
+
+# Monitor results
+gh run watch $(gh run list --repo cculb/schoolconnect --limit 1 --json databaseId --jq '.[0].databaseId')
+```
+
+### UI Test Classes
+
+| Class | Tests |
+|-------|-------|
+| TestPageLoad | App loads, title, subtitle |
+| TestSidebarSettings | API key, model dropdown, student name |
+| TestQuickActions | 4 action buttons work |
+| TestWelcomeInfoBox | Student summary display |
+| TestConversationStarters | Dynamic starter buttons |
+| TestChatInterface | Chat input functionality |
+
+### Adding New UI Tests
+
+When adding a UI feature:
+
+1. Add test to appropriate class in `tests/e2e/test_streamlit_ui.py`
+2. Use `streamlit_page` fixture for browser access
+3. Use Streamlit's `data-testid` attributes for selectors
+4. Run locally: `pytest tests/e2e/test_streamlit_ui.py -v -k "your_test"`
+5. Validate in CI: `gh workflow run "CI Pipeline" -f agent_task=ui-only`
 
 ## Project Structure
 

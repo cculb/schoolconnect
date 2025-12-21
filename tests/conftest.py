@@ -4,11 +4,16 @@ import asyncio
 import base64
 import os
 import sqlite3
+import subprocess
+import sys
+import time
 from pathlib import Path
 from typing import Generator
 
 import pytest
+import requests
 from dotenv import load_dotenv
+from playwright.sync_api import Browser, Page, sync_playwright
 
 # Load environment variables
 load_dotenv()
@@ -215,3 +220,128 @@ GROUND_TRUTH = {
 def ground_truth() -> dict:
     """Provide ground truth data for validation."""
     return GROUND_TRUTH
+
+
+# =============================================================================
+# Streamlit UI Test Fixtures
+# =============================================================================
+
+STREAMLIT_PORT = 8503  # Avoid conflict with dev server on 8501/8502
+
+
+@pytest.fixture(scope="session")
+def streamlit_server(project_root: Path) -> Generator[str, None, None]:
+    """Start Streamlit server for UI tests.
+
+    Yields the base URL of the running server.
+    """
+    app_path = project_root / "streamlit-chat" / "app.py"
+    db_path = project_root / "powerschool.db"
+
+    # Set environment for the subprocess
+    env = os.environ.copy()
+    env["DATABASE_PATH"] = str(db_path)
+
+    # Start Streamlit server
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "streamlit",
+            "run",
+            str(app_path),
+            "--server.port",
+            str(STREAMLIT_PORT),
+            "--server.headless",
+            "true",
+            "--server.runOnSave",
+            "false",
+            "--browser.gatherUsageStats",
+            "false",
+        ],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    base_url = f"http://localhost:{STREAMLIT_PORT}"
+
+    # Wait for server to start (15s timeout)
+    for _ in range(30):
+        try:
+            response = requests.get(f"{base_url}/_stcore/health", timeout=1)
+            if response.status_code == 200:
+                break
+        except Exception:
+            time.sleep(0.5)
+    else:
+        proc.terminate()
+        proc.wait()
+        pytest.fail("Streamlit server failed to start")
+
+    yield base_url
+
+    # Cleanup
+    proc.terminate()
+    proc.wait(timeout=5)
+
+
+@pytest.fixture(scope="session")
+def browser() -> Generator[Browser, None, None]:
+    """Launch browser for UI tests."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+                "--no-sandbox",
+            ],
+        )
+        yield browser
+        browser.close()
+
+
+@pytest.fixture(scope="function")
+def streamlit_page(browser: Browser, streamlit_server: str) -> Generator[Page, None, None]:
+    """Provide a page navigated to the Streamlit app.
+
+    This is the main fixture tests should use.
+    """
+    context = browser.new_context(viewport={"width": 1280, "height": 720})
+    page = context.new_page()
+
+    # Navigate to app
+    page.goto(streamlit_server)
+
+    # Wait for Streamlit to finish loading
+    page.wait_for_selector('[data-testid="stApp"]', timeout=10000)
+    page.wait_for_load_state("networkidle")
+
+    yield page
+
+    context.close()
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Store test result for screenshot fixture."""
+    outcome = yield
+    rep = outcome.get_result()
+    setattr(item, f"rep_{rep.when}", rep)
+
+
+@pytest.fixture(autouse=True)
+def screenshot_on_failure(request, streamlit_page: Page = None):
+    """Capture screenshot on test failure for UI tests."""
+    yield
+
+    # Only capture for UI tests that use streamlit_page
+    if streamlit_page is None:
+        return
+
+    if hasattr(request.node, "rep_call") and request.node.rep_call.failed:
+        screenshots_dir = Path("reports/screenshots")
+        screenshots_dir.mkdir(parents=True, exist_ok=True)
+        test_name = request.node.name.replace("/", "_").replace("::", "_")
+        streamlit_page.screenshot(path=str(screenshots_dir / f"{test_name}.png"), full_page=True)
