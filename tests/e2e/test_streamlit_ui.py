@@ -73,9 +73,9 @@ class TestLoginPage:
         streamlit_page.wait_for_load_state("networkidle")
         streamlit_page.wait_for_timeout(1000)
 
-        # Should now see main app content - look for Quick Actions header (with emoji)
-        quick_actions = streamlit_page.get_by_text("Quick Actions").first
-        expect(quick_actions).to_be_visible(timeout=10000)
+        # Should now see main app content - look for a quick action button (e.g., Missing Work)
+        missing_work_btn = streamlit_page.locator('button:has-text("Missing Work")')
+        expect(missing_work_btn).to_be_visible(timeout=10000)
 
 
 # =============================================================================
@@ -112,18 +112,21 @@ class TestSidebarSettings:
 
     def _open_sidebar(self, page: Page):
         """Helper to open the sidebar reliably."""
-        # The sidebar starts collapsed, click to open
+        # The sidebar may be collapsed, check for collapsed control button
         collapsed = page.locator('[data-testid="collapsedControl"]')
         if collapsed.is_visible():
             collapsed.click()
-            # Wait for sidebar to be visible
-            page.locator('[data-testid="stSidebar"]').wait_for(state="visible", timeout=5000)
+            # Wait for sidebar to expand (aria-expanded becomes true)
+            page.locator('[data-testid="stSidebar"][aria-expanded="true"]').wait_for(
+                state="attached", timeout=5000
+            )
 
     def test_sidebar_can_be_opened(self, logged_in_page: Page):
         """Verify sidebar opens when clicked."""
         self._open_sidebar(logged_in_page)
-        sidebar = logged_in_page.locator('[data-testid="stSidebar"]')
-        expect(sidebar).to_be_visible()
+        # Check sidebar is expanded (aria-expanded="true")
+        sidebar = logged_in_page.locator('[data-testid="stSidebar"][aria-expanded="true"]')
+        expect(sidebar).to_be_attached()
 
     def test_model_dropdown_exists(self, logged_in_page: Page):
         """Verify AI model dropdown is present."""
@@ -163,7 +166,8 @@ class TestQuickActions:
     )
     def test_quick_action_button_exists(self, logged_in_page: Page, button_text: str):
         """Verify all quick action buttons are visible."""
-        button = logged_in_page.locator(f'button:has-text("{button_text}")')
+        # Use .first to avoid multiple match issues (e.g., "Attendance" in metrics)
+        button = logged_in_page.locator(f'button:has-text("{button_text}")').first
         expect(button).to_be_visible()
 
     def test_missing_work_button_adds_message(self, logged_in_page: Page):
@@ -189,17 +193,17 @@ class TestDashboard:
     def test_courses_metric_visible(self, logged_in_page: Page):
         """Verify courses count is displayed."""
         # Look for the Courses label in a metric card
-        courses = logged_in_page.locator('text=Courses').first
+        courses = logged_in_page.locator("text=Courses").first
         expect(courses).to_be_visible()
 
     def test_missing_work_metric_visible(self, logged_in_page: Page):
         """Verify missing work count is displayed."""
-        missing = logged_in_page.locator('text=Missing Work').first
+        missing = logged_in_page.locator("text=Missing Work").first
         expect(missing).to_be_visible()
 
     def test_attendance_metric_visible(self, logged_in_page: Page):
         """Verify attendance percentage is displayed."""
-        attendance = logged_in_page.locator('text=Attendance').first
+        attendance = logged_in_page.locator("text=Attendance").first
         expect(attendance).to_be_visible()
 
 
@@ -254,8 +258,8 @@ class TestChatInterface:
 
     def test_quick_action_creates_messages(self, logged_in_page: Page):
         """Verify clicking a quick action creates chat messages."""
-        # Click Attendance quick action
-        logged_in_page.locator('button:has-text("Attendance")').click()
+        # Click Attendance quick action (use .first to avoid multiple match issues)
+        logged_in_page.locator('button:has-text("Attendance")').first.click()
         logged_in_page.wait_for_load_state("networkidle")
         logged_in_page.wait_for_timeout(500)
 
