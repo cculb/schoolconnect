@@ -318,7 +318,11 @@ def _make_api_call(client: Anthropic, model: str, system: str, messages: list) -
     Client errors (4xx except 429) are NOT retried.
     """
     return client.messages.create(
-        model=model, max_tokens=1024, system=system, tools=TOOLS, messages=messages
+        model=model,
+        max_tokens=1024,
+        system=system,
+        tools=TOOLS,
+        messages=messages
     )
 
 
