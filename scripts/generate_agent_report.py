@@ -11,6 +11,11 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# Load .env file from current directory if available
+load_dotenv()
+
 
 def load_test_summary() -> dict:
     """Load the test summary JSON if it exists."""

@@ -12,6 +12,11 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# Load .env file from current directory if available
+load_dotenv()
+
 
 def parse_junit_xml(xml_path: Path) -> dict:
     """Parse JUnit XML to extract test results."""

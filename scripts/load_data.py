@@ -6,6 +6,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# Load .env file from current directory if available
+load_dotenv()
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.database.connection import init_database, verify_database
