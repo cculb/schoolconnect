@@ -1,5 +1,8 @@
 ---
+name: analyze-attendance
 description: Analyze attendance patterns including day-of-week trends, streaks, and identify concerning patterns requiring intervention
+whenToUse: User asks for attendance analysis, pattern identification, or trends. Triggered by phrases like "attendance patterns", "when is [student] usually absent", "analyze attendance", "attendance trends", or "what days does [student] miss".
+tags: [student-data, schoolconnect, analytics]
 ---
 
 # Analyze Attendance Patterns

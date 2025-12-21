@@ -22,6 +22,11 @@ EXPECTED_SKILLS = [
     "check-grades.md",
     "missing-work.md",
     "check-attendance.md",
+    "analyze-attendance.md",
+    "communication-suggestions.md",
+    "draft-teacher-email.md",
+    "teacher-meeting-prep.md",
+    "weekly-report.md",
 ]
 
 # Valid MCP tools from server.py

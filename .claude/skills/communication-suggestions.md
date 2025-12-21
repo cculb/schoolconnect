@@ -1,5 +1,8 @@
 ---
+name: communication-suggestions
 description: Get AI-driven suggestions on when and why to contact teachers based on student data including missing work, grade trends, and attendance patterns
+whenToUse: User asks which teachers to contact, who to reach out to, or needs communication guidance. Triggered by phrases like "should I contact", "who do I need to reach out to", "which teachers to email", or "communication recommendations".
+tags: [student-data, schoolconnect, communication, analytics]
 ---
 
 # Communication Suggestions
