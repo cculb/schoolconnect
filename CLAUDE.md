@@ -4,9 +4,35 @@
 
 PowerSchool scraper and MCP server for student data access. Python 3.12+, Playwright for browser automation.
 
-## Validation Workflow
+## MANDATORY: CI Validation Before Completing Work
 
-**CRITICAL**: After making code changes, always validate your work using the CI pipeline.
+**You MUST validate all changes via CI before marking any task complete.**
+
+> **Why?** PR-triggered CI only runs lint, unit, and integration tests.
+> E2E tests require manual dispatch to avoid hammering PowerSchool.
+> You must trigger the appropriate validation yourself.
+
+### Validation Requirements
+
+| Change Type | Required CI Task | Command |
+|-------------|------------------|---------|
+| Any code change | `quick-check` | `gh workflow run ... -f agent_task=quick-check` |
+| Scraper changes | `scraper-only` | `gh workflow run ... -f agent_task=scraper-only` |
+| MCP server changes | `mcp-only` | `gh workflow run ... -f agent_task=mcp-only` |
+| UI/Streamlit changes | `ui-only` | `gh workflow run ... -f agent_task=ui-only` |
+| Before completing task | `full-validation` | `gh workflow run ... -f agent_task=full-validation` |
+
+### What PR CI Runs (Automatic)
+
+- Lint & Type Check
+- Unit Tests
+- Integration Tests
+- E2E Tests (skipped - requires manual dispatch)
+- Agent Development Cycle (skipped - requires manual dispatch)
+
+---
+
+## Validation Workflow
 
 ### Quick Validation (Fast Feedback)
 
@@ -136,6 +162,7 @@ scripts/
 ## Environment
 
 Tests use these env vars (set in GitHub secrets):
+
 - `POWERSCHOOL_URL` - PowerSchool portal URL
 - `POWERSCHOOL_USERNAME` - Login username
 - `POWERSCHOOL_PASSWORD` - Login password (base64)
