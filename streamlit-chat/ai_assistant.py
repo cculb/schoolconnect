@@ -79,6 +79,21 @@ class ClientAPIError(APIError):
         )
 
 
+def _get_status_code(error: Exception) -> int | None:
+    """Extract HTTP status code from an API error.
+
+    Args:
+        error: The exception to extract status code from
+
+    Returns:
+        The HTTP status code if available, None otherwise
+    """
+    status_code = getattr(error, "status_code", None)
+    if status_code is None and hasattr(error, "response"):
+        status_code = getattr(error.response, "status_code", None)
+    return status_code
+
+
 def categorize_error(error: Exception) -> APIError:
     """Categorize an API error for appropriate handling and user messaging.
 
@@ -96,9 +111,7 @@ def categorize_error(error: Exception) -> APIError:
 
     if isinstance(error, APIStatusError):
         # Check status code for server errors (5xx)
-        status_code = getattr(error, "status_code", None)
-        if status_code is None and hasattr(error, "response"):
-            status_code = getattr(error.response, "status_code", None)
+        status_code = _get_status_code(error)
 
         if status_code and 500 <= status_code < 600:
             return ServerAPIError(original_error=error)
@@ -133,9 +146,7 @@ def is_retryable_error(error: Exception) -> bool:
         return True
 
     if isinstance(error, APIStatusError):
-        status_code = getattr(error, "status_code", None)
-        if status_code is None and hasattr(error, "response"):
-            status_code = getattr(error.response, "status_code", None)
+        status_code = _get_status_code(error)
 
         if status_code:
             # Retry on rate limits and server errors
@@ -190,7 +201,7 @@ AVAILABLE_MODELS = {
     "claude-haiku-3-5-20241022": "Claude Haiku 3.5 (Fastest)",
 }
 
-DEFAULT_MODEL = "claude-opus-4-5-20250514"
+DEFAULT_MODEL = "claude-sonnet-4-20250514"
 
 
 TOOLS = [

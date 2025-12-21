@@ -1,22 +1,52 @@
 """Tests for AI assistant retry logic and error handling."""
 
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from ai_assistant import (
+# Add streamlit-chat directory to path for imports
+streamlit_chat_dir = Path(__file__).parent.parent.parent / "streamlit-chat"
+if str(streamlit_chat_dir) not in sys.path:
+    sys.path.insert(0, str(streamlit_chat_dir))
+
+from ai_assistant import (  # noqa: E402
     ClientAPIError,
     RateLimitAPIError,
     ServerAPIError,
+    _get_status_code,
     categorize_error,
     get_ai_response,
 )
-from anthropic import (
+from anthropic import (  # noqa: E402
     APIStatusError,
     AuthenticationError,
     BadRequestError,
     InternalServerError,
     RateLimitError,
 )
-from httpx import Request, Response
+from httpx import Request, Response  # noqa: E402
+
+
+class TestGetStatusCode:
+    """Test the _get_status_code helper function."""
+
+    def test_extracts_direct_status_code(self):
+        """Should extract status_code attribute directly."""
+        mock_error = MagicMock()
+        mock_error.status_code = 429
+        assert _get_status_code(mock_error) == 429
+
+    def test_extracts_status_code_from_response(self):
+        """Should extract status_code from response attribute."""
+        mock_error = MagicMock(spec=[])  # No direct status_code
+        mock_error.response = MagicMock()
+        mock_error.response.status_code = 500
+        assert _get_status_code(mock_error) == 500
+
+    def test_returns_none_when_no_status_code(self):
+        """Should return None when no status code available."""
+        mock_error = MagicMock(spec=[])  # No attributes
+        assert _get_status_code(mock_error) is None
 
 
 class TestRetryOnRateLimit:
@@ -327,3 +357,115 @@ class TestUserFriendlyErrorMessages:
             or "service" in result.lower()
             or "temporarily" in result.lower()
         )
+
+
+class TestToolLoopRetry:
+    """Test retry behavior during the tool use loop."""
+
+    @patch("ai_assistant.Anthropic")
+    @patch("ai_assistant.execute_tool")
+    def test_retries_on_rate_limit_during_tool_loop(self, mock_execute_tool, mock_anthropic_class):
+        """Should retry when rate limit occurs during tool use loop."""
+        mock_client = MagicMock()
+        mock_anthropic_class.return_value = mock_client
+
+        mock_request = Request(method="POST", url="https://api.anthropic.com/v1/messages")
+
+        rate_limit_error = RateLimitError(
+            message="Rate limit exceeded",
+            response=Response(status_code=429, request=mock_request),
+            body={"error": {"message": "Rate limit exceeded"}},
+        )
+
+        # First response indicates tool use
+        tool_use_response = MagicMock()
+        tool_use_response.stop_reason = "tool_use"
+        tool_use_block = MagicMock()
+        tool_use_block.type = "tool_use"
+        tool_use_block.name = "get_current_grades"
+        tool_use_block.input = {}
+        tool_use_block.id = "tool_123"
+        tool_use_response.content = [tool_use_block]
+
+        # Final successful response
+        final_response = MagicMock()
+        final_response.stop_reason = "end_turn"
+        final_response.content = [MagicMock(text="Here are the grades", type="text")]
+        final_response.content[0].text = "Here are the grades"
+
+        # First call succeeds with tool_use, second fails with rate limit,
+        # third retry succeeds
+        mock_client.messages.create.side_effect = [
+            tool_use_response,
+            rate_limit_error,
+            final_response,
+        ]
+
+        # Mock tool execution
+        mock_execute_tool.return_value = {"grades": [{"course": "Math", "grade": "A"}]}
+
+        result = get_ai_response(
+            user_message="Show my grades",
+            student_context={"student_name": "Test"},
+            chat_history=[],
+            api_key="test-key",
+        )
+
+        assert "Here are the grades" in result
+        # 3 calls: initial tool_use, rate limit (retry), final success
+        assert mock_client.messages.create.call_count == 3
+        # Tool should have been executed once
+        assert mock_execute_tool.call_count == 1
+
+    @patch("ai_assistant.Anthropic")
+    @patch("ai_assistant.execute_tool")
+    def test_retries_on_server_error_during_tool_loop(self, mock_execute_tool, mock_anthropic_class):
+        """Should retry when server error occurs during tool use loop."""
+        mock_client = MagicMock()
+        mock_anthropic_class.return_value = mock_client
+
+        mock_request = Request(method="POST", url="https://api.anthropic.com/v1/messages")
+
+        server_error = InternalServerError(
+            message="Internal server error",
+            response=Response(status_code=500, request=mock_request),
+            body={"error": {"message": "Internal server error"}},
+        )
+
+        # First response indicates tool use
+        tool_use_response = MagicMock()
+        tool_use_response.stop_reason = "tool_use"
+        tool_use_block = MagicMock()
+        tool_use_block.type = "tool_use"
+        tool_use_block.name = "get_attendance_summary"
+        tool_use_block.input = {}
+        tool_use_block.id = "tool_456"
+        tool_use_response.content = [tool_use_block]
+
+        # Final successful response
+        final_response = MagicMock()
+        final_response.stop_reason = "end_turn"
+        final_response.content = [MagicMock(text="Attendance is 95%", type="text")]
+        final_response.content[0].text = "Attendance is 95%"
+
+        # First call succeeds with tool_use, second fails with 500,
+        # third retry succeeds
+        mock_client.messages.create.side_effect = [
+            tool_use_response,
+            server_error,
+            final_response,
+        ]
+
+        # Mock tool execution
+        mock_execute_tool.return_value = {"attendance_rate": 95.0}
+
+        result = get_ai_response(
+            user_message="Show attendance",
+            student_context={"student_name": "Test"},
+            chat_history=[],
+            api_key="test-key",
+        )
+
+        assert "Attendance is 95%" in result
+        assert mock_client.messages.create.call_count == 3
+        assert mock_execute_tool.call_count == 1
