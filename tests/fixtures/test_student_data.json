@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Portable test data for SchoolPulse tests. Used by conftest.py fixtures.",
+  "students": [
+    {
+      "powerschool_id": "TEST001",
+      "first_name": "TestStudent",
+      "last_name": "Smith",
+      "grade_level": "6",
+      "school_name": "Test School",
+      "is_primary": true,
+      "attendance": {
+        "term": "YTD",
+        "attendance_rate": 88.6,
+        "days_present": 61,
+        "days_absent": 9,
+        "tardies": 2,
+        "total_days": 70
+      },
+      "courses": [
+        {
+          "name": "Math 6",
+          "teacher_name": "Smith, John",
+          "teacher_email": "jsmith@school.edu",
+          "room": "101",
+          "term": "Q2",
+          "grade": {"letter": "B+", "percent": 87.5}
+        },
+        {
+          "name": "Science (grade 6)",
+          "teacher_name": "Johnson, Mary",
+          "teacher_email": "mjohnson@school.edu",
+          "room": "202",
+          "term": "Q2",
+          "grade": {"letter": "B", "percent": 83.2}
+        },
+        {
+          "name": "Social Studies (grade 6)",
+          "teacher_name": "Williams, Robert",
+          "teacher_email": "rwilliams@school.edu",
+          "room": "303",
+          "term": "Q2",
+          "grade": {"letter": "B-", "percent": 81.0}
+        },
+        {
+          "name": "Language Arts 6",
+          "teacher_name": "Brown, Lisa",
+          "teacher_email": "lbrown@school.edu",
+          "room": "104",
+          "term": "Q2",
+          "grade": {"letter": "A-", "percent": 91.5}
+        },
+        {
+          "name": "PE 6",
+          "teacher_name": "Davis, Mike",
+          "teacher_email": "mdavis@school.edu",
+          "room": "GYM",
+          "term": "Q2",
+          "grade": {"letter": "A", "percent": 95.0}
+        },
+        {
+          "name": "Art 6",
+          "teacher_name": "Wilson, Sarah",
+          "teacher_email": "swilson@school.edu",
+          "room": "ART",
+          "term": "Q2",
+          "grade": {"letter": "A", "percent": 94.0}
+        },
+        {
+          "name": "Music 6",
+          "teacher_name": "Taylor, James",
+          "teacher_email": "jtaylor@school.edu",
+          "room": "MUS",
+          "term": "Q2",
+          "grade": {"letter": "A-", "percent": 92.0}
+        },
+        {
+          "name": "Spanish 6",
+          "teacher_name": "Garcia, Maria",
+          "teacher_email": "mgarcia@school.edu",
+          "room": "205",
+          "term": "Q2",
+          "grade": {"letter": "B+", "percent": 88.0}
+        }
+      ],
+      "assignments": [
+        {
+          "course_name": "Science (grade 6)",
+          "teacher_name": "Johnson, Mary",
+          "assignment_name": "Atomic Structure Knowledge Check",
+          "category": "Formative",
+          "due_date": "2024-12-10",
+          "status": "Missing",
+          "score": null,
+          "max_score": 100
+        },
+        {
+          "course_name": "Social Studies (grade 6)",
+          "teacher_name": "Williams, Robert",
+          "assignment_name": "FORMATIVE - Edpuzzle on Autocracies",
+          "category": "Formative",
+          "due_date": "2024-12-12",
+          "status": "Missing",
+          "score": null,
+          "max_score": 100
+        },
+        {
+          "course_name": "Math 6",
+          "teacher_name": "Smith, John",
+          "assignment_name": "Chapter 5 Test",
+          "category": "Summative",
+          "due_date": "2024-12-08",
+          "status": "Collected",
+          "score": "85",
+          "max_score": 100
+        }
+      ]
+    },
+    {
+      "powerschool_id": "TEST002",
+      "first_name": "SecondStudent",
+      "last_name": "Jones",
+      "grade_level": "7",
+      "school_name": "Test School",
+      "is_primary": false,
+      "attendance": {
+        "term": "YTD",
+        "attendance_rate": 95.0,
+        "days_present": 66,
+        "days_absent": 4,
+        "tardies": 1,
+        "total_days": 70
+      },
+      "courses": [
+        {
+          "name": "Math 7",
+          "teacher_name": "Adams, Jane",
+          "teacher_email": "jadams@school.edu",
+          "room": "201",
+          "term": "Q2",
+          "grade": {"letter": "A", "percent": 95.0}
+        }
+      ],
+      "assignments": []
+    }
+  ],
+  "expected_values": {
+    "primary_student": {
+      "name": "TestStudent Smith",
+      "first_name": "TestStudent",
+      "missing_count": 2,
+      "course_count": 8,
+      "attendance_rate": 88.6,
+      "days_absent": 9,
+      "tardies": 2
+    },
+    "missing_assignment_names": [
+      "Atomic Structure Knowledge Check",
+      "FORMATIVE - Edpuzzle on Autocracies"
+    ]
+  },
+  "mock_ai_responses": {
+    "missing_assignments": "Based on the data, TestStudent has 2 missing assignments: 1) Atomic Structure Knowledge Check in Science (due 12/10), and 2) FORMATIVE - Edpuzzle on Autocracies in Social Studies (due 12/12).",
+    "attendance": "TestStudent's attendance rate is 88.6%. They have 9 absences and 2 tardies this year.",
+    "grades": "TestStudent is doing well academically with mostly B's and A's across their courses.",
+    "generic": "I understand you're asking about your student. Let me check the data for you."
+  }
+}

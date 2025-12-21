@@ -1,5 +1,23 @@
 # Agent Development Guide
 
+## MANDATORY: Validate All Changes via CI
+
+**You MUST trigger CI validation before completing any task.**
+Do not rely solely on PR-triggered CI.
+
+### Why Manual CI Dispatch is Required
+
+| Trigger | What Runs | What's Skipped |
+|---------|-----------|----------------|
+| **Pull Request** | Lint, Unit, Integration | E2E Tests, Agent Dev Cycle |
+| **Push to main** | Lint, Unit, Integration, E2E | Agent Dev Cycle |
+| **Manual Dispatch** | Everything you select | Nothing |
+
+> **Key insight**: PR CI is fast feedback only. E2E tests require manual
+> dispatch to avoid hammering PowerSchool on every PR.
+
+---
+
 ## Validating Features via CI
 
 ### After Adding Any Feature
@@ -127,11 +145,17 @@ def test_my_new_button(self, streamlit_page: Page):
 
 ## Feature Validation Checklist
 
-When adding a new feature:
+**Before marking ANY task complete**, verify:
 
-- [ ] Unit tests pass: `pytest tests/unit/ -x`
-- [ ] Integration tests pass: `pytest tests/integration/ -x`
-- [ ] UI tests pass (if applicable): `pytest tests/e2e/test_streamlit_ui.py -v`
-- [ ] Lint passes: `ruff check src/ tests/`
-- [ ] CI `quick-check` passes
-- [ ] CI `full-validation` passes before marking complete
+- [ ] Local lint passes: `ruff check src/ tests/`
+- [ ] Local unit tests pass: `pytest tests/unit/ -x`
+- [ ] **CI `quick-check` passes** (manual dispatch)
+- [ ] **CI `full-validation` passes** (REQUIRED before task completion)
+
+### Task Completion Requirements
+
+1. Push your changes to the branch
+2. Trigger CI: `gh workflow run "CI Pipeline" --repo cculb/schoolconnect -f agent_task=full-validation`
+3. Wait for CI: `gh run watch $(gh run list --repo cculb/schoolconnect --limit 1 --json databaseId --jq '.[0].databaseId')`
+4. Verify all tests pass before marking task complete
+5. If tests fail, fix and repeat from step 1

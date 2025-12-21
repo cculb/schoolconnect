@@ -36,6 +36,7 @@ Create a Shortcut for quick triggering:
      - `Authorization`: `Bearer YOUR_GITHUB_TOKEN`
      - `Accept`: `application/vnd.github.v3+json`
    - Request Body (JSON):
+
      ```json
      {
        "ref": "main",
@@ -45,6 +46,7 @@ Create a Shortcut for quick triggering:
        }
      }
      ```
+
 4. Add to Home Screen as widget
 
 ### Generate a GitHub Token
@@ -71,6 +73,7 @@ curl -X POST \
 ```
 
 Available event types:
+
 - `agent-run` - Run specific test suite
 - `agent-validate` - Validate ground truth
 - `agent-quick-check` - Fast lint + unit tests
@@ -86,9 +89,11 @@ Set up a bot that monitors workflow status and allows triggering:
 ## Checking Results
 
 ### From Phone (GitHub App)
+
 - Navigate to Actions > Select run > View logs
 
 ### From CLI
+
 ```bash
 # List recent runs
 gh run list --repo cculb/schoolconnect --limit 5
@@ -103,6 +108,7 @@ gh run download <RUN_ID> --repo cculb/schoolconnect
 ### Agent-Readable Output
 
 Workflows generate `reports/test-summary.json` as an artifact with:
+
 - Test counts (passed, failed, skipped)
 - Database stats
 - Error details
@@ -176,11 +182,13 @@ Run /validate when done.
 ## Troubleshooting
 
 ### Pipeline won't trigger
+
 - Check GitHub token has `workflow` scope
 - Verify repo name is correct
 - Check Actions are enabled in repo settings
 
 ### Tests failing
+
 - Download artifacts for detailed logs
 - Check `reports/e2e-output.log` for full pytest output
 - Verify PowerSchool secrets are configured

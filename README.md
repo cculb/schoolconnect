@@ -103,6 +103,70 @@ powerschool status
 powerschool serve-mcp
 ```
 
+## Streamlit Chat Interface (SchoolPulse)
+
+The project includes a Streamlit-based chat interface for interacting with student data using Claude AI.
+
+### Streamlit Installation
+
+```bash
+# Navigate to the streamlit-chat directory
+cd streamlit-chat
+
+# Install dependencies (if not already installed via uv sync)
+pip install streamlit anthropic python-dotenv
+```
+
+### Environment Setup
+
+Create a `.env` file in the project root or `streamlit-chat/` directory:
+
+```env
+# Required for AI chat features
+ANTHROPIC_API_KEY=your-anthropic-api-key
+
+# Optional: Specify database path (defaults to ./powerschool.db)
+DATABASE_PATH=/path/to/powerschool.db
+```
+
+### Running the App
+
+```bash
+# From the streamlit-chat directory
+cd streamlit-chat
+streamlit run app.py
+
+# Or from project root
+streamlit run streamlit-chat/app.py
+```
+
+The app will be available at `http://localhost:8501`.
+
+### Streamlit Configuration Options
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `ANTHROPIC_API_KEY` | Your Anthropic API key for Claude | Required for AI features |
+| `DATABASE_PATH` | Path to SQLite database | `./powerschool.db` |
+
+### Streamlit Features
+
+- **Quick Actions**: One-click buttons for common queries (missing assignments, grades, attendance)
+- **AI Chat**: Natural language conversation with Claude about student data
+- **Model Selection**: Choose between Claude Opus, Sonnet, or Haiku models
+- **Student Summary**: At-a-glance view of attendance rate, missing work, and course count
+
+### Demo Mode
+
+For testing without a real database, seed the database with test data:
+
+```bash
+cd streamlit-chat
+python seed_data.py
+```
+
+Default demo credentials: `demo` / `demo123`
+
 ## Project Structure
 
 ```text
@@ -177,6 +241,84 @@ This tool handles sensitive student data (FERPA protected). Best practices:
 - The `raw_html/` directory may contain scraped data - excluded from git
 - MCP server custom queries are restricted to read-only operations on allowed tables
 
+## Troubleshooting
+
+### Common Issues
+
+**Database errors:**
+
+```bash
+# Reset database
+powerschool init-db --force
+```
+
+**Playwright browser errors:**
+
+```bash
+# Reinstall browsers
+uv run playwright install chromium
+```
+
+**Login failures:**
+
+- Verify credentials in `.env` file
+- Check PowerSchool URL format (must include https://)
+- Try running with visible browser: `powerschool sync` (without --headless)
+
+**Import errors:**
+
+```bash
+# Ensure all dependencies are installed
+uv sync
+```
+
+### Getting Help
+
+1. Check existing issues: [GitHub Issues](https://github.com/cculb/schoolconnect/issues)
+2. Review documentation in `docs/` directory
+3. For agent development, see `CLAUDE.md`
+
+## Contributing
+
+We welcome contributions! Please see our contributing guidelines:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes following our code style (use `ruff check` and `ruff format`)
+4. Write tests for new features
+5. Ensure all tests pass: `pytest tests/`
+6. Submit a pull request
+
+See `CLAUDE.md` for agent-assisted development workflow.
+
+## Roadmap
+
+**Current Features:**
+
+- Core data scraping (grades, assignments, attendance)
+- CLI tools and MCP server
+- Streamlit chat interface
+
+**Planned Features:**
+
+- Teacher comments extraction
+- Daily attendance records
+- Bilingual interface (English/Spanish)
+- WhatsApp/SMS notifications
+- Voice interface
+- Document translation (OCR + translate)
+
+See `COMPREHENSIVE_DATA_REPORT.md` for detailed vision and market analysis.
+
 ## License
 
 MIT License - See [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+Built with:
+
+- [Playwright](https://playwright.dev/) for browser automation
+- [MCP](https://modelcontextprotocol.io/) for AI agent integration
+- [Claude](https://www.anthropic.com/claude) for conversational AI
+- [Streamlit](https://streamlit.io/) for the web interface
