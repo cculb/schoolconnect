@@ -18,13 +18,6 @@ from playwright.sync_api import Browser, Page, sync_playwright
 # Load environment variables
 load_dotenv()
 
-# Add streamlit-chat directory to path for ai_assistant imports
-# This is done early in conftest.py so all tests can import from streamlit-chat
-# without needing E402 suppressions in individual test files
-STREAMLIT_CHAT_DIR = Path(__file__).parent.parent / "streamlit-chat"
-if str(STREAMLIT_CHAT_DIR) not in sys.path:
-    sys.path.insert(0, str(STREAMLIT_CHAT_DIR))
-
 
 def pytest_configure(config):
     """Configure custom pytest markers."""
