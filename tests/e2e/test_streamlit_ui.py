@@ -33,7 +33,8 @@ class TestLoginPage:
 
     def test_login_title_displays(self, streamlit_page: Page):
         """Verify SchoolPulse title is visible on login page."""
-        title = streamlit_page.get_by_text("SchoolPulse")
+        # Use .first since there are multiple elements containing "SchoolPulse"
+        title = streamlit_page.get_by_text("SchoolPulse").first
         expect(title).to_be_visible()
 
     def test_login_form_exists(self, streamlit_page: Page):
@@ -72,8 +73,8 @@ class TestLoginPage:
         streamlit_page.wait_for_load_state("networkidle")
         streamlit_page.wait_for_timeout(1000)
 
-        # Should now see main app content
-        quick_actions = streamlit_page.get_by_text("Quick Actions")
+        # Should now see main app content - look for Quick Actions header (with emoji)
+        quick_actions = streamlit_page.get_by_text("Quick Actions").first
         expect(quick_actions).to_be_visible(timeout=10000)
 
 
@@ -96,7 +97,8 @@ class TestPageLoad:
 
     def test_title_displays_correctly(self, logged_in_page: Page):
         """Verify SchoolPulse title is visible."""
-        title = logged_in_page.get_by_text("SchoolPulse")
+        # Use .first since there are multiple elements containing "SchoolPulse"
+        title = logged_in_page.get_by_text("SchoolPulse").first
         expect(title).to_be_visible()
 
     def test_subtitle_displays(self, logged_in_page: Page):
@@ -108,16 +110,24 @@ class TestPageLoad:
 class TestSidebarSettings:
     """Tests for sidebar configuration elements."""
 
+    def _open_sidebar(self, page: Page):
+        """Helper to open the sidebar reliably."""
+        # The sidebar starts collapsed, click to open
+        collapsed = page.locator('[data-testid="collapsedControl"]')
+        if collapsed.is_visible():
+            collapsed.click()
+            # Wait for sidebar to be visible
+            page.locator('[data-testid="stSidebar"]').wait_for(state="visible", timeout=5000)
+
     def test_sidebar_can_be_opened(self, logged_in_page: Page):
         """Verify sidebar opens when clicked."""
-        # Click sidebar control to open it
-        logged_in_page.locator('[data-testid="collapsedControl"]').click()
+        self._open_sidebar(logged_in_page)
         sidebar = logged_in_page.locator('[data-testid="stSidebar"]')
         expect(sidebar).to_be_visible()
 
     def test_model_dropdown_exists(self, logged_in_page: Page):
         """Verify AI model dropdown is present."""
-        logged_in_page.locator('[data-testid="collapsedControl"]').click()
+        self._open_sidebar(logged_in_page)
 
         model_select = logged_in_page.locator(
             '[data-testid="stSelectbox"]:has(label:has-text("AI Model"))'
@@ -126,14 +136,14 @@ class TestSidebarSettings:
 
     def test_logout_button_exists(self, logged_in_page: Page):
         """Verify Logout button is present."""
-        logged_in_page.locator('[data-testid="collapsedControl"]').click()
+        self._open_sidebar(logged_in_page)
 
         logout_button = logged_in_page.locator('button:has-text("Logout")')
         expect(logout_button).to_be_visible()
 
     def test_clear_chat_button_exists(self, logged_in_page: Page):
         """Verify Clear Chat button is present."""
-        logged_in_page.locator('[data-testid="collapsedControl"]').click()
+        self._open_sidebar(logged_in_page)
 
         clear_button = logged_in_page.locator('button:has-text("Clear Chat")')
         expect(clear_button).to_be_visible()
@@ -198,12 +208,14 @@ class TestWelcomeSection:
 
     def test_welcome_message_visible(self, logged_in_page: Page):
         """Verify welcome message displays on empty chat."""
-        welcome = logged_in_page.get_by_text("Welcome to SchoolPulse")
+        # Use .first since there may be multiple matches
+        welcome = logged_in_page.get_by_text("Welcome to SchoolPulse").first
         expect(welcome).to_be_visible()
 
     def test_tip_message_visible(self, logged_in_page: Page):
         """Verify tip message is displayed."""
-        tip = logged_in_page.get_by_text("Tip:")
+        # Use .first since there may be multiple matches
+        tip = logged_in_page.get_by_text("Tip:").first
         expect(tip).to_be_visible()
 
 
@@ -212,7 +224,8 @@ class TestConversationStarters:
 
     def test_try_asking_label_visible(self, logged_in_page: Page):
         """Verify 'Try asking:' label is visible."""
-        try_asking = logged_in_page.get_by_text("Try asking:")
+        # Use .first since there may be multiple matches
+        try_asking = logged_in_page.get_by_text("Try asking:").first
         expect(try_asking).to_be_visible()
 
     def test_has_conversation_starters(self, logged_in_page: Page):
@@ -230,7 +243,8 @@ class TestChatInterface:
 
     def test_chat_section_header(self, logged_in_page: Page):
         """Verify chat section header is visible."""
-        header = logged_in_page.get_by_text("Chat with SchoolPulse")
+        # Use .first since there may be multiple matches
+        header = logged_in_page.get_by_text("Chat with SchoolPulse").first
         expect(header).to_be_visible()
 
     def test_chat_input_exists(self, logged_in_page: Page):
