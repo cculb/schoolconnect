@@ -89,9 +89,7 @@ def sync(headless: bool, student: str, all_students: bool):
             console.print(f"[cyan]Mode: Syncing specific student: {student}[/cyan]")
 
         # Run scraper
-        run_full_scrape(
-            headless=headless, student_name=student, all_students=all_students
-        )
+        run_full_scrape(headless=headless, student_name=student, all_students=all_students)
 
         # Load data
         console.print("\n[blue]Loading data into database...[/blue]")

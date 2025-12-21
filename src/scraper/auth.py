@@ -220,11 +220,13 @@ def get_available_students(page: Page) -> List[Dict[str, any]]:
             student_id = _extract_student_id_from_href(href)
 
             if student_id and name:
-                students.append({
-                    "id": student_id,
-                    "name": name,
-                    "selected": is_selected,
-                })
+                students.append(
+                    {
+                        "id": student_id,
+                        "name": name,
+                        "selected": is_selected,
+                    }
+                )
 
     return students
 

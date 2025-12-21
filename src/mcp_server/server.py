@@ -711,7 +711,11 @@ async def handle_course_score_details(
 
     details = repo.get_course_score_details_by_name(student["id"], course_name)
     if not details:
-        return [TextContent(type="text", text=f"No course found matching '{course_name}' for {student_name}.")]
+        return [
+            TextContent(
+                type="text", text=f"No course found matching '{course_name}' for {student_name}."
+            )
+        ]
 
     course = details["course"]
     categories = details["categories"]
@@ -742,7 +746,7 @@ async def handle_course_score_details(
 
             # Calculate weighted contribution
             if cat_pct is not None and weight > 0:
-                total_weighted += (cat_pct * weight / 100)
+                total_weighted += cat_pct * weight / 100
 
         if total_weighted > 0:
             result += f"\n**Calculated Weighted Grade**: {total_weighted:.1f}%\n"
@@ -772,7 +776,11 @@ async def handle_course_score_details(
             result += f"\n*... and {len(assignments) - 20} more assignments*\n"
 
         # Show assignment details if any have descriptions/standards/comments
-        detailed = [a for a in assignments if a.get("description") or a.get("standards") or a.get("comments")]
+        detailed = [
+            a
+            for a in assignments
+            if a.get("description") or a.get("standards") or a.get("comments")
+        ]
         if detailed:
             result += "\n### Assignment Details\n\n"
             for a in detailed[:10]:
@@ -896,9 +904,7 @@ async def handle_daily_attendance(
     return [TextContent(type="text", text=result)]
 
 
-async def handle_attendance_patterns(
-    repo: Repository, student_name: str
-) -> list[TextContent]:
+async def handle_attendance_patterns(repo: Repository, student_name: str) -> list[TextContent]:
     """Analyze attendance patterns."""
     student = repo.get_student_by_name(student_name)
     if not student:
@@ -950,7 +956,7 @@ async def handle_attendance_patterns(
         # Highlight concerning patterns
         if problem_days:
             result += "### Concerning Patterns\n\n"
-            for day, absences, total in sorted(problem_days, key=lambda x: -x[1]/x[2]):
+            for day, absences, total in sorted(problem_days, key=lambda x: -x[1] / x[2]):
                 pct = (absences / total) * 100
                 result += f"- Frequently absent on **{day}**: {absences}/{total} ({pct:.0f}%)\n"
 
