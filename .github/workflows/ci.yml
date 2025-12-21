@@ -166,6 +166,20 @@ jobs:
             echo "POWERSCHOOL_PASSWORD=$DECODED" >> $GITHUB_ENV
           fi
 
+      - name: Run scraper to populate database
+        run: |
+          echo "Running PowerSchool scraper..."
+          python scripts/scrape_full.py --headless || {
+            echo "Scraper failed, E2E tests will run with potentially empty database"
+            exit 0
+          }
+          echo "Loading data into database..."
+          python scripts/load_data.py || {
+            echo "Data loading failed"
+            exit 0
+          }
+          echo "Scraper completed successfully"
+
       - name: Run E2E tests
         run: |
           pytest tests/e2e/ -v \
@@ -227,6 +241,28 @@ jobs:
             DECODED=$(echo "$POWERSCHOOL_PASSWORD_B64" | base64 -d 2>/dev/null || echo "$POWERSCHOOL_PASSWORD_B64")
             echo "POWERSCHOOL_PASSWORD=$DECODED" >> $GITHUB_ENV
           fi
+
+      - name: Run scraper for E2E tasks
+        run: |
+          TASK="${{ github.event.inputs.agent_task }}"
+          # Only run scraper for tasks that need E2E database
+          case "$TASK" in
+            "scraper-only"|"mcp-only"|"alerts-only"|"full-validation")
+              echo "Running PowerSchool scraper for E2E task: $TASK"
+              python scripts/scrape_full.py --headless || {
+                echo "Scraper failed, tests will run with potentially empty database"
+                exit 0
+              }
+              python scripts/load_data.py || {
+                echo "Data loading failed"
+                exit 0
+              }
+              echo "Scraper completed successfully"
+              ;;
+            *)
+              echo "Skipping scraper for task: $TASK"
+              ;;
+          esac
 
       - name: Run agent task
         id: agent-task
