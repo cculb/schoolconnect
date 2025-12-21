@@ -1,30 +1,24 @@
 """Tests for AI assistant retry logic and error handling."""
 
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-# Add streamlit-chat directory to path for imports
-STREAMLIT_CHAT_DIR = Path(__file__).parent.parent.parent / "streamlit-chat"
-sys.path.insert(0, str(STREAMLIT_CHAT_DIR))
-
-# ruff: noqa: E402
-import pytest  # noqa: E402
-from ai_assistant import (  # noqa: E402
+import pytest
+from ai_assistant import (
+    MAX_TOOL_ITERATIONS,
     ClientAPIError,
     RateLimitAPIError,
     ServerAPIError,
     categorize_error,
     get_ai_response,
 )
-from anthropic import (  # noqa: E402
+from anthropic import (
     APIStatusError,
     AuthenticationError,
     BadRequestError,
     InternalServerError,
     RateLimitError,
 )
-from httpx import Request, Response  # noqa: E402
+from httpx import Request, Response
 
 pytestmark = pytest.mark.unit
 
@@ -337,3 +331,73 @@ class TestUserFriendlyErrorMessages:
             or "service" in result.lower()
             or "temporarily" in result.lower()
         )
+
+
+class TestToolIterationLimit:
+    """Test that tool use loop has iteration protection."""
+
+    @patch("ai_assistant.execute_tool")
+    @patch("ai_assistant.Anthropic")
+    def test_tool_loop_stops_after_max_iterations(self, mock_anthropic_class, mock_execute_tool):
+        """Should stop tool loop after MAX_TOOL_ITERATIONS to prevent infinite loops."""
+        mock_client = MagicMock()
+        mock_anthropic_class.return_value = mock_client
+
+        # Mock execute_tool to return valid data
+        mock_execute_tool.return_value = {"name": "Test Student", "grade": "A"}
+
+        # Create a mock response that always wants to use a tool
+        def create_tool_use_response():
+            response = MagicMock()
+            response.stop_reason = "tool_use"
+            tool_block = MagicMock()
+            tool_block.type = "tool_use"
+            tool_block.name = "get_student_summary"
+            tool_block.input = {}
+            tool_block.id = "test-id"
+            response.content = [tool_block]
+            return response
+
+        # Always return tool_use responses to simulate infinite loop
+        mock_client.messages.create.return_value = create_tool_use_response()
+
+        result = get_ai_response(
+            user_message="Hello",
+            student_context={"student_name": "Test"},
+            chat_history=[],
+            api_key="test-key",
+        )
+
+        # Should stop after MAX_TOOL_ITERATIONS + 1 calls (initial + max iterations)
+        assert mock_client.messages.create.call_count == MAX_TOOL_ITERATIONS + 1
+        # Should return user-friendly message about taking too long
+        assert "taking longer" in result.lower() or "rephrasing" in result.lower()
+
+
+class TestGenericErrorHandling:
+    """Test that generic errors don't leak sensitive information."""
+
+    @patch("ai_assistant.Anthropic")
+    def test_generic_error_does_not_leak_details(self, mock_anthropic_class):
+        """Generic exceptions should not expose internal error details to users."""
+        mock_client = MagicMock()
+        mock_anthropic_class.return_value = mock_client
+
+        # Simulate an unexpected error with sensitive info in the message
+        sensitive_error = Exception(
+            "Connection failed: api_key=sk-ant-12345 at /internal/path/to/file.py"
+        )
+        mock_client.messages.create.side_effect = sensitive_error
+
+        result = get_ai_response(
+            user_message="Hello",
+            student_context={"student_name": "Test"},
+            chat_history=[],
+            api_key="test-key",
+        )
+
+        # Should NOT contain sensitive information
+        assert "sk-ant" not in result
+        assert "/internal/path" not in result
+        # Should contain generic error message
+        assert "unexpected error" in result.lower() or "try again" in result.lower()
