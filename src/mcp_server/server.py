@@ -19,12 +19,12 @@ load_dotenv()
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
+from mcp.server import Server  # noqa: E402
+from mcp.server.stdio import stdio_server  # noqa: E402
+from mcp.types import TextContent, Tool  # noqa: E402
 
-from src.database.connection import verify_database
-from src.database.repository import Repository
+from src.database.connection import verify_database  # noqa: E402
+from src.database.repository import Repository  # noqa: E402
 
 # Initialize MCP server
 app = Server("powerschool-portal")
