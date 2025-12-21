@@ -16,12 +16,11 @@ sys.path.insert(0, str(THIS_DIR))
 os.environ.setdefault("DATABASE_PATH", str(THIS_DIR.parent / "powerschool.db"))
 
 from data_queries import (
-    get_missing_assignments,
-    get_current_grades,
-    get_attendance_summary,
-    get_student_summary,
-    get_upcoming_assignments,
     get_all_courses,
+    get_attendance_summary,
+    get_current_grades,
+    get_missing_assignments,
+    get_student_summary,
 )
 
 
@@ -149,6 +148,7 @@ class TestAIAssistant:
     def test_ai_response_mentions_data(self):
         """AI response includes relevant data."""
         import os
+
         from dotenv import load_dotenv
 
         load_dotenv(Path(__file__).parent.parent / ".env")

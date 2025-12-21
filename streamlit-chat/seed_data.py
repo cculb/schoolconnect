@@ -3,7 +3,6 @@
 import sqlite3
 from pathlib import Path
 
-
 GROUND_TRUTH = {
     "student": "Delilah Rae Culbreth",
     "first_name": "Delilah",

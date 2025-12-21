@@ -1,6 +1,10 @@
-"""SchoolPulse - Parent Chat Interface for PowerSchool Data."""
+"""SchoolPulse - Parent Chat Interface for PowerSchool Data.
 
-import os
+FERPA Compliant Implementation:
+- CRIT-1: Authentication required before accessing student data
+- CRIT-2: API key retrieved only from st.secrets or os.environ (never session_state)
+- HIGH-1: 30-minute session timeout with logout functionality
+"""
 
 import streamlit as st
 from ai_assistant import (
@@ -10,7 +14,22 @@ from ai_assistant import (
     get_db_path,
     get_quick_response,
 )
+from auth import (
+    can_access_student,
+    get_api_key,
+    get_current_user_students,
+    get_default_student,
+    render_login_page,
+)
 from data_queries import get_student_summary
+from session_manager import (
+    create_session,
+    logout,
+    refresh_session,
+    render_session_warning,
+    should_show_timeout_warning,
+    validate_session,
+)
 
 
 def get_contextual_starters(summary: dict) -> list[dict]:
@@ -252,6 +271,16 @@ st.markdown("""
         color: white;
     }
 
+    /* Login form styling */
+    .login-container {
+        max-width: 400px;
+        margin: 4rem auto;
+        padding: 2rem;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
     /* Mobile responsive */
     @media (max-width: 768px) {
         .main .block-container {
@@ -274,74 +303,84 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Header
-st.markdown("""
-<div class="app-header">
-    <h1 class="app-title">📚 SchoolPulse</h1>
-    <p class="app-subtitle">Your child's academic progress at a glance</p>
-</div>
-""", unsafe_allow_html=True)
 
-# Initialize session state
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "student_name" not in st.session_state:
-    st.session_state.student_name = "Delilah"
-
-if "api_key" not in st.session_state:
-    # Try to get from environment or secrets
-    st.session_state.api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-
-if "model" not in st.session_state:
-    st.session_state.model = DEFAULT_MODEL
-
-# Sidebar for settings
-with st.sidebar:
-    st.header("⚙️ Settings")
-
-    # API Key input
-    api_key_input = st.text_input(
-        "Anthropic API Key",
-        value=st.session_state.api_key,
-        type="password",
-        help="Enter your Anthropic API key"
-    )
-    if api_key_input != st.session_state.api_key:
-        st.session_state.api_key = api_key_input
-
-    st.divider()
-
-    # Model selection
-    model_options = list(AVAILABLE_MODELS.keys())
-    current_index = model_options.index(st.session_state.model) if st.session_state.model in model_options else 0
-
-    selected_model = st.selectbox(
-        "AI Model",
-        options=model_options,
-        format_func=lambda x: AVAILABLE_MODELS[x],
-        index=current_index,
-        help="Select the Claude model to use"
-    )
-    if selected_model != st.session_state.model:
-        st.session_state.model = selected_model
-
-    st.divider()
-
-    # Student name (for demo purposes)
-    student_input = st.text_input(
-        "Student Name",
-        value=st.session_state.student_name,
-        help="Enter the student's first name"
-    )
-    if student_input != st.session_state.student_name:
-        st.session_state.student_name = student_input
-
-    st.divider()
-
-    if st.button("🗑️ Clear Chat", use_container_width=True):
+def init_session_state():
+    """Initialize session state variables."""
+    if "messages" not in st.session_state:
         st.session_state.messages = []
+
+    if "model" not in st.session_state:
+        st.session_state.model = DEFAULT_MODEL
+
+    if "session_token" not in st.session_state:
+        st.session_state.session_token = None
+
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    if "user_info" not in st.session_state:
+        st.session_state.user_info = None
+
+
+def handle_login():
+    """Handle the login flow."""
+    st.markdown("""
+    <div class="app-header">
+        <h1 class="app-title">📚 SchoolPulse</h1>
+        <p class="app-subtitle">Your child's academic progress at a glance</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    result = render_login_page()
+
+    if result:
+        # Create session
+        token = create_session(result["user_id"], result["allowed_students"])
+        st.session_state.session_token = token
+        st.session_state.authenticated = True
+        st.session_state.user_info = result
+
+        # Set default student from allowed students
+        default_student = get_default_student(result)
+        if default_student:
+            st.session_state.student_name = default_student
+
         st.rerun()
+
+
+def handle_logout():
+    """Handle logout and session cleanup."""
+    if st.session_state.session_token:
+        logout(st.session_state.session_token)
+
+    st.session_state.session_token = None
+    st.session_state.authenticated = False
+    st.session_state.user_info = None
+    st.session_state.messages = []
+    st.rerun()
+
+
+def validate_current_session() -> bool:
+    """Validate the current session and refresh if valid.
+
+    Returns:
+        True if session is valid, False otherwise
+    """
+    token = st.session_state.get("session_token")
+    if not token:
+        return False
+
+    session = validate_session(token)
+    if not session:
+        # Session expired
+        st.session_state.authenticated = False
+        st.session_state.session_token = None
+        st.session_state.user_info = None
+        return False
+
+    # Refresh session on activity
+    refresh_session(token)
+    return True
 
 
 def format_quick_response(result: dict) -> str:
@@ -369,7 +408,7 @@ def format_quick_response(result: dict) -> str:
 </div>
 """
         else:
-            output += f"<div style='background: #fef3c7; padding: 1rem; border-radius: 10px; border-left: 4px solid #f59e0b; margin-bottom: 1rem;'>"
+            output += "<div style='background: #fef3c7; padding: 1rem; border-radius: 10px; border-left: 4px solid #f59e0b; margin-bottom: 1rem;'>"
             output += f"<strong>⚠️ Found {len(data)} missing assignment(s)</strong></div>\n\n"
             for i, item in enumerate(data, 1):
                 output += f"**{i}. {item['assignment_name']}**\n"
@@ -421,7 +460,7 @@ def format_quick_response(result: dict) -> str:
     </div>
 </div>
 """
-            output += f"\n**📊 Details:**\n"
+            output += "\n**📊 Details:**\n"
             output += f"- Days Absent: `{data.get('days_absent', 0)}`\n"
             output += f"- Tardies: `{data.get('tardies', 0)}`\n"
             output += f"- Total School Days: `{data.get('total_days', 0)}`\n"
@@ -446,7 +485,7 @@ def format_quick_response(result: dict) -> str:
 </div>
 """
         else:
-            output += f"<div style='background: #dbeafe; padding: 1rem; border-radius: 10px; border-left: 4px solid #3b82f6; margin-bottom: 1rem;'>"
+            output += "<div style='background: #dbeafe; padding: 1rem; border-radius: 10px; border-left: 4px solid #3b82f6; margin-bottom: 1rem;'>"
             output += f"<strong>📌 {len(data)} assignment(s) coming up</strong></div>\n\n"
             for i, item in enumerate(data, 1):
                 output += f"**{i}. {item['assignment_name']}**\n"
@@ -460,8 +499,8 @@ def format_quick_response(result: dict) -> str:
             missing = data.get('missing_assignments', 0)
             attendance = data.get('attendance_rate', 0)
 
-            output += f"| Metric | Value |\n"
-            output += f"|--------|-------|\n"
+            output += "| Metric | Value |\n"
+            output += "|--------|-------|\n"
             output += f"| 📚 Courses | {data.get('course_count', 0)} |\n"
             output += f"| 📝 Missing Work | {missing} |\n"
             output += f"| 🏫 Attendance | {attendance}% |\n"
@@ -472,211 +511,320 @@ def format_quick_response(result: dict) -> str:
     return output
 
 
-# Dashboard metrics
-try:
-    db_path = get_db_path()
-    summary = get_student_summary(db_path, st.session_state.student_name)
+def render_main_app():
+    """Render the main application after authentication."""
+    # Get current user info
+    user_info = st.session_state.user_info
+    token = st.session_state.session_token
 
-    if "error" not in summary:
-        st.markdown("### 📊 Dashboard Overview")
+    # Initialize student_name if not set
+    if "student_name" not in st.session_state:
+        st.session_state.student_name = get_default_student(user_info) or "Delilah"
 
-        # Create metric cards
-        col1, col2, col3, col4 = st.columns(4)
+    # Get API key securely (CRIT-2 compliance)
+    api_key = get_api_key()
 
-        with col1:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">📚 Courses</div>
-                <div class="metric-value">{summary.get('course_count', 0)}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    # Header
+    st.markdown("""
+    <div class="app-header">
+        <h1 class="app-title">📚 SchoolPulse</h1>
+        <p class="app-subtitle">Your child's academic progress at a glance</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-        with col2:
-            missing = summary.get('missing_assignments', 0)
-            badge_class = "badge-success" if missing == 0 else "badge-warning" if missing < 3 else "badge-danger"
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">📝 Missing Work</div>
-                <div class="metric-value"><span class="badge {badge_class}">{missing}</span></div>
-            </div>
-            """, unsafe_allow_html=True)
+    # Sidebar for settings
+    with st.sidebar:
+        st.header("⚙️ Settings")
 
-        with col3:
-            attendance_rate = summary.get('attendance_rate', 0)
-            badge_class = "badge-success" if attendance_rate >= 95 else "badge-warning" if attendance_rate >= 90 else "badge-danger"
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">🏫 Attendance</div>
-                <div class="metric-value"><span class="badge {badge_class}">{attendance_rate}%</span></div>
-            </div>
-            """, unsafe_allow_html=True)
+        # Show logged in user
+        st.markdown(f"**Logged in as:** {user_info.get('display_name', 'User')}")
 
-        with col4:
-            days_absent = summary.get('days_absent', 0)
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">📅 Days Absent</div>
-                <div class="metric-value">{days_absent}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        st.divider()
 
-        st.markdown("<br>", unsafe_allow_html=True)
-except Exception:
-    pass
+        # Session timeout warning
+        if should_show_timeout_warning(token):
+            render_session_warning(token)
 
-# Quick action buttons
-st.markdown("### ⚡ Quick Actions")
-col1, col2 = st.columns(2)
+        # Logout button
+        if st.button("🚪 Logout", use_container_width=True, key="sidebar_logout"):
+            handle_logout()
 
-with col1:
-    if st.button("📝 Missing Work", use_container_width=True, key="btn_missing"):
-        result = get_quick_response("missing", st.session_state.student_name)
-        response_text = format_quick_response(result)
-        st.session_state.messages.append({"role": "user", "content": "What are the missing assignments?"})
-        st.session_state.messages.append({"role": "assistant", "content": response_text})
-        st.rerun()
+        st.divider()
 
-    if st.button("📊 Current Grades", use_container_width=True, key="btn_grades"):
-        result = get_quick_response("grades", st.session_state.student_name)
-        response_text = format_quick_response(result)
-        st.session_state.messages.append({"role": "user", "content": "What are the current grades?"})
-        st.session_state.messages.append({"role": "assistant", "content": response_text})
-        st.rerun()
+        # Model selection
+        model_options = list(AVAILABLE_MODELS.keys())
+        current_index = model_options.index(st.session_state.model) if st.session_state.model in model_options else 0
 
-with col2:
-    if st.button("📅 Due This Week", use_container_width=True, key="btn_upcoming"):
-        result = get_quick_response("upcoming", st.session_state.student_name)
-        response_text = format_quick_response(result)
-        st.session_state.messages.append({"role": "user", "content": "What's due this week?"})
-        st.session_state.messages.append({"role": "assistant", "content": response_text})
-        st.rerun()
+        selected_model = st.selectbox(
+            "AI Model",
+            options=model_options,
+            format_func=lambda x: AVAILABLE_MODELS[x],
+            index=current_index,
+            help="Select the Claude model to use"
+        )
+        if selected_model != st.session_state.model:
+            st.session_state.model = selected_model
 
-    if st.button("🏫 Attendance", use_container_width=True, key="btn_attendance"):
-        result = get_quick_response("attendance", st.session_state.student_name)
-        response_text = format_quick_response(result)
-        st.session_state.messages.append({"role": "user", "content": "How's the attendance?"})
-        st.session_state.messages.append({"role": "assistant", "content": response_text})
-        st.rerun()
+        st.divider()
 
-st.divider()
+        # Student selection (only show students the user has access to)
+        allowed_students = get_current_user_students(user_info)
+        if len(allowed_students) > 1:
+            student_input = st.selectbox(
+                "Select Student",
+                options=allowed_students,
+                index=allowed_students.index(st.session_state.student_name) if st.session_state.student_name in allowed_students else 0,
+                help="Select which student to view"
+            )
+            if student_input != st.session_state.student_name:
+                # Verify access (FERPA authorization)
+                if can_access_student(user_info["user_id"], student_input):
+                    st.session_state.student_name = student_input
+                    st.session_state.messages = []  # Clear chat for new student
+                else:
+                    st.error("Access denied to this student.")
+        else:
+            st.markdown(f"**Student:** {st.session_state.student_name}")
 
-# Chat section header
-st.markdown("### 💬 Chat with SchoolPulse")
+        st.divider()
 
-# Display chat messages
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        if st.button("🗑️ Clear Chat", use_container_width=True):
+            st.session_state.messages = []
+            st.rerun()
 
-# Chat input
-if prompt := st.chat_input("💭 Ask about your child's progress..."):
-    # Add user message
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    # Check API key
+    if not api_key:
+        st.warning(
+            "⚠️ API key not configured. Please set ANTHROPIC_API_KEY in secrets or environment."
+        )
 
-    # Display user message
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    # Get AI response
-    with st.chat_message("assistant"):
-        with st.spinner("🔍 Looking up..."):
-            if not st.session_state.api_key:
-                response = "⚠️ Please enter your Anthropic API key in the sidebar settings."
-            else:
-                response = get_ai_response(
-                    prompt,
-                    {"student_name": st.session_state.student_name},
-                    st.session_state.messages[:-1],  # Exclude the message we just added
-                    st.session_state.api_key,
-                    st.session_state.model
-                )
-        st.markdown(response)
-
-    # Add assistant response to history
-    st.session_state.messages.append({"role": "assistant", "content": response})
-
-# Show student summary and conversation starters when chat is empty
-if not st.session_state.messages:
+    # Dashboard metrics
     try:
         db_path = get_db_path()
+
+        # Verify authorization before accessing student data
+        if not can_access_student(user_info["user_id"], st.session_state.student_name):
+            st.error("You are not authorized to view this student's data.")
+            return
+
         summary = get_student_summary(db_path, st.session_state.student_name)
 
         if "error" not in summary:
-            attendance_rate = summary.get('attendance_rate', 0)
-            missing = summary.get('missing_assignments', 0)
+            st.markdown("### 📊 Dashboard Overview")
 
-            # Status emojis
-            attendance_emoji = "✅" if attendance_rate >= 95 else "⚠️" if attendance_rate >= 90 else "🔴"
-            missing_emoji = "✅" if missing == 0 else "⚠️" if missing < 3 else "🔴"
+            # Create metric cards
+            col1, col2, col3, col4 = st.columns(4)
 
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-                        padding: 2rem;
-                        border-radius: 15px;
-                        border-left: 5px solid #667eea;
-                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                <h3 style="color: #667eea; margin-top: 0;">👋 Welcome to SchoolPulse!</h3>
-                <p style="font-size: 1.1rem; margin-bottom: 1.5rem;">
-                    Here's a quick overview for <strong>{summary.get('name', 'your student')}</strong>:
-                </p>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                    <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">📚 Courses</div>
-                        <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{summary.get('course_count', 0)}</div>
-                    </div>
-                    <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">📝 Missing Work</div>
-                        <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{missing_emoji} {missing}</div>
-                    </div>
-                    <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">🏫 Attendance</div>
-                        <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{attendance_emoji} {attendance_rate}%</div>
-                    </div>
+            with col1:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">📚 Courses</div>
+                    <div class="metric-value">{summary.get('course_count', 0)}</div>
                 </div>
-                <p style="margin-top: 1.5rem; margin-bottom: 0; font-size: 1rem; color: #555;">
-                    💡 <strong>Tip:</strong> Use the quick action buttons above or try the conversation starters below!
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
-            # Show context-based conversation starters
-            st.markdown("**💭 Try asking:**")
-            starters = get_contextual_starters(summary)
+            with col2:
+                missing = summary.get('missing_assignments', 0)
+                badge_class = "badge-success" if missing == 0 else "badge-warning" if missing < 3 else "badge-danger"
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">📝 Missing Work</div>
+                    <div class="metric-value"><span class="badge {badge_class}">{missing}</span></div>
+                </div>
+                """, unsafe_allow_html=True)
 
-            # Render starters in rows of 2
-            for i in range(0, len(starters), 2):
-                cols = st.columns(2)
-                for j, col in enumerate(cols):
-                    if i + j < len(starters):
-                        starter = starters[i + j]
-                        with col:
-                            if st.button(
-                                f"{starter['icon']} {starter['text']}",
-                                key=f"starter_{i+j}",
-                                use_container_width=True
-                            ):
-                                # Add user message
-                                st.session_state.messages.append({
-                                    "role": "user",
-                                    "content": starter['text']
-                                })
-                                # Get AI response
-                                if st.session_state.api_key:
-                                    response = get_ai_response(
-                                        starter['text'],
-                                        {"student_name": st.session_state.student_name},
-                                        [],
-                                        st.session_state.api_key,
-                                        st.session_state.model
-                                    )
-                                else:
-                                    response = "Please enter your Anthropic API key in the sidebar settings."
-                                st.session_state.messages.append({
-                                    "role": "assistant",
-                                    "content": response
-                                })
-                                st.rerun()
-        else:
+            with col3:
+                attendance_rate = summary.get('attendance_rate', 0)
+                badge_class = "badge-success" if attendance_rate >= 95 else "badge-warning" if attendance_rate >= 90 else "badge-danger"
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">🏫 Attendance</div>
+                    <div class="metric-value"><span class="badge {badge_class}">{attendance_rate}%</span></div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col4:
+                days_absent = summary.get('days_absent', 0)
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">📅 Days Absent</div>
+                    <div class="metric-value">{days_absent}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+    except Exception:
+        pass
+
+    # Quick action buttons
+    st.markdown("### ⚡ Quick Actions")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("📝 Missing Work", use_container_width=True, key="btn_missing"):
+            result = get_quick_response("missing", st.session_state.student_name)
+            response_text = format_quick_response(result)
+            st.session_state.messages.append({"role": "user", "content": "What are the missing assignments?"})
+            st.session_state.messages.append({"role": "assistant", "content": response_text})
+            st.rerun()
+
+        if st.button("📊 Current Grades", use_container_width=True, key="btn_grades"):
+            result = get_quick_response("grades", st.session_state.student_name)
+            response_text = format_quick_response(result)
+            st.session_state.messages.append({"role": "user", "content": "What are the current grades?"})
+            st.session_state.messages.append({"role": "assistant", "content": response_text})
+            st.rerun()
+
+    with col2:
+        if st.button("📅 Due This Week", use_container_width=True, key="btn_upcoming"):
+            result = get_quick_response("upcoming", st.session_state.student_name)
+            response_text = format_quick_response(result)
+            st.session_state.messages.append({"role": "user", "content": "What's due this week?"})
+            st.session_state.messages.append({"role": "assistant", "content": response_text})
+            st.rerun()
+
+        if st.button("🏫 Attendance", use_container_width=True, key="btn_attendance"):
+            result = get_quick_response("attendance", st.session_state.student_name)
+            response_text = format_quick_response(result)
+            st.session_state.messages.append({"role": "user", "content": "How's the attendance?"})
+            st.session_state.messages.append({"role": "assistant", "content": response_text})
+            st.rerun()
+
+    st.divider()
+
+    # Chat section header
+    st.markdown("### 💬 Chat with SchoolPulse")
+
+    # Display chat messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # Chat input
+    if prompt := st.chat_input("💭 Ask about your child's progress..."):
+        # Add user message
+        st.session_state.messages.append({"role": "user", "content": prompt})
+
+        # Display user message
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # Get AI response
+        with st.chat_message("assistant"):
+            with st.spinner("🔍 Looking up..."):
+                if not api_key:
+                    response = "⚠️ Please configure your Anthropic API key in secrets or environment."
+                else:
+                    response = get_ai_response(
+                        prompt,
+                        {"student_name": st.session_state.student_name},
+                        st.session_state.messages[:-1],  # Exclude the message we just added
+                        api_key,
+                        st.session_state.model
+                    )
+            st.markdown(response)
+
+        # Add assistant response to history
+        st.session_state.messages.append({"role": "assistant", "content": response})
+
+    # Show student summary and conversation starters when chat is empty
+    if not st.session_state.messages:
+        try:
+            db_path = get_db_path()
+            summary = get_student_summary(db_path, st.session_state.student_name)
+
+            if "error" not in summary:
+                attendance_rate = summary.get('attendance_rate', 0)
+                missing = summary.get('missing_assignments', 0)
+
+                # Status emojis
+                attendance_emoji = "✅" if attendance_rate >= 95 else "⚠️" if attendance_rate >= 90 else "🔴"
+                missing_emoji = "✅" if missing == 0 else "⚠️" if missing < 3 else "🔴"
+
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                            padding: 2rem;
+                            border-radius: 15px;
+                            border-left: 5px solid #667eea;
+                            box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                    <h3 style="color: #667eea; margin-top: 0;">👋 Welcome to SchoolPulse!</h3>
+                    <p style="font-size: 1.1rem; margin-bottom: 1.5rem;">
+                        Here's a quick overview for <strong>{summary.get('name', 'your student')}</strong>:
+                    </p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">📚 Courses</div>
+                            <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{summary.get('course_count', 0)}</div>
+                        </div>
+                        <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">📝 Missing Work</div>
+                            <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{missing_emoji} {missing}</div>
+                        </div>
+                        <div style="background: white; padding: 1rem; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">🏫 Attendance</div>
+                            <div style="font-size: 1.8rem; font-weight: 700; color: #667eea;">{attendance_emoji} {attendance_rate}%</div>
+                        </div>
+                    </div>
+                    <p style="margin-top: 1.5rem; margin-bottom: 0; font-size: 1rem; color: #555;">
+                        💡 <strong>Tip:</strong> Use the quick action buttons above or try the conversation starters below!
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Show context-based conversation starters
+                st.markdown("**💭 Try asking:**")
+                starters = get_contextual_starters(summary)
+
+                # Render starters in rows of 2
+                for i in range(0, len(starters), 2):
+                    cols = st.columns(2)
+                    for j, col in enumerate(cols):
+                        if i + j < len(starters):
+                            starter = starters[i + j]
+                            with col:
+                                if st.button(
+                                    f"{starter['icon']} {starter['text']}",
+                                    key=f"starter_{i+j}",
+                                    use_container_width=True
+                                ):
+                                    # Add user message
+                                    st.session_state.messages.append({
+                                        "role": "user",
+                                        "content": starter['text']
+                                    })
+                                    # Get AI response
+                                    if api_key:
+                                        response = get_ai_response(
+                                            starter['text'],
+                                            {"student_name": st.session_state.student_name},
+                                            [],
+                                            api_key,
+                                            st.session_state.model
+                                        )
+                                    else:
+                                        response = "Please configure your Anthropic API key in secrets or environment."
+                                    st.session_state.messages.append({
+                                        "role": "assistant",
+                                        "content": response
+                                    })
+                                    st.rerun()
+            else:
+                st.markdown("""
+                <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                            padding: 2rem;
+                            border-radius: 15px;
+                            border-left: 5px solid #667eea;
+                            box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                    <h3 style="color: #667eea; margin-top: 0;">👋 Welcome to SchoolPulse!</h3>
+                    <p style="font-size: 1.1rem;">
+                        Your intelligent assistant for tracking your child's academic progress.
+                    </p>
+                    <p style="margin-bottom: 0;">
+                        💡 Use the quick action buttons above or ask me about your child's progress!
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+        except Exception:
             st.markdown("""
             <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
                         padding: 2rem;
@@ -692,19 +840,27 @@ if not st.session_state.messages:
                 </p>
             </div>
             """, unsafe_allow_html=True)
-    except Exception:
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-                    padding: 2rem;
-                    border-radius: 15px;
-                    border-left: 5px solid #667eea;
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-            <h3 style="color: #667eea; margin-top: 0;">👋 Welcome to SchoolPulse!</h3>
-            <p style="font-size: 1.1rem;">
-                Your intelligent assistant for tracking your child's academic progress.
-            </p>
-            <p style="margin-bottom: 0;">
-                💡 Use the quick action buttons above or ask me about your child's progress!
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+
+
+# Main entry point
+def main():
+    """Main application entry point."""
+    init_session_state()
+
+    # Check if user is authenticated
+    if not st.session_state.authenticated:
+        handle_login()
+        return
+
+    # Validate session (may have expired)
+    if not validate_current_session():
+        st.warning("Your session has expired. Please log in again.")
+        handle_login()
+        return
+
+    # Render main application
+    render_main_app()
+
+
+if __name__ == "__main__":
+    main()

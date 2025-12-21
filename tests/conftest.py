@@ -229,6 +229,29 @@ def ground_truth() -> dict:
 STREAMLIT_PORT = 8503  # Avoid conflict with dev server on 8501/8502
 
 
+def seed_test_database(project_root: Path) -> Path:
+    """Seed the database with test data before starting Streamlit server."""
+    # Import seed_data module
+    import importlib.util
+
+    seed_script = project_root / "streamlit-chat" / "seed_data.py"
+    db_path = project_root / "streamlit-chat" / "powerschool.db"
+
+    if seed_script.exists():
+        spec = importlib.util.spec_from_file_location("seed_data", seed_script)
+        seed_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(seed_module)
+
+        # Create database if it doesn't exist
+        if not db_path.exists():
+            seed_module.create_test_database(db_path)
+        else:
+            # Update attendance to match ground truth
+            seed_module.update_attendance_to_ground_truth(db_path)
+
+    return db_path
+
+
 @pytest.fixture(scope="session")
 def streamlit_server(project_root: Path) -> Generator[str, None, None]:
     """Start Streamlit server for UI tests.
@@ -236,10 +259,9 @@ def streamlit_server(project_root: Path) -> Generator[str, None, None]:
     Yields the base URL of the running server.
     """
     app_path = project_root / "streamlit-chat" / "app.py"
-    # Database can be in either location - check both
-    db_path = project_root / "streamlit-chat" / "powerschool.db"
-    if not db_path.exists():
-        db_path = project_root / "powerschool.db"
+
+    # Seed database before starting server
+    db_path = seed_test_database(project_root)
 
     # Set environment for the subprocess
     env = os.environ.copy()
@@ -310,9 +332,9 @@ def browser() -> Generator[Browser, None, None]:
 
 @pytest.fixture(scope="function")
 def streamlit_page(browser: Browser, streamlit_server: str) -> Generator[Page, None, None]:
-    """Provide a page navigated to the Streamlit app.
+    """Provide a page navigated to the Streamlit app (at login page).
 
-    This is the main fixture tests should use.
+    Use this for testing login functionality.
     """
     context = browser.new_context(viewport={"width": 1280, "height": 720})
     page = context.new_page()
@@ -329,6 +351,58 @@ def streamlit_page(browser: Browser, streamlit_server: str) -> Generator[Page, N
     context.close()
 
 
+def perform_login(page: Page, username: str = "demo", password: str = "demo123") -> None:
+    """Helper function to log in to the Streamlit app.
+
+    Args:
+        page: Playwright page object
+        username: Username for login (default: demo)
+        password: Password for login (default: demo123)
+    """
+    # Wait for login form
+    page.wait_for_selector('input[type="text"]', timeout=10000)
+
+    # Fill in credentials
+    username_input = page.locator('input[type="text"]').first
+    password_input = page.locator('input[type="password"]').first
+
+    username_input.fill(username)
+    password_input.fill(password)
+
+    # Submit form
+    login_button = page.locator('button:has-text("Login")')
+    login_button.click()
+
+    # Wait for main app to load (login complete)
+    page.wait_for_load_state("networkidle")
+    # Give time for session to initialize
+    page.wait_for_timeout(1000)
+
+
+@pytest.fixture(scope="function")
+def logged_in_page(browser: Browser, streamlit_server: str) -> Generator[Page, None, None]:
+    """Provide a page logged into the Streamlit app.
+
+    This is the main fixture for testing the main app UI.
+    """
+    context = browser.new_context(viewport={"width": 1280, "height": 720})
+    page = context.new_page()
+
+    # Navigate to app
+    page.goto(streamlit_server)
+
+    # Wait for Streamlit to finish loading
+    page.wait_for_selector('[data-testid="stApp"]', timeout=10000)
+    page.wait_for_load_state("networkidle")
+
+    # Perform login
+    perform_login(page)
+
+    yield page
+
+    context.close()
+
+
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     """Store test result for screenshot fixture."""
@@ -338,16 +412,28 @@ def pytest_runtest_makereport(item, call):
 
 
 @pytest.fixture(autouse=True)
-def screenshot_on_failure(request, streamlit_page: Page = None):
+def screenshot_on_failure(request):
     """Capture screenshot on test failure for UI tests."""
     yield
 
-    # Only capture for UI tests that use streamlit_page
-    if streamlit_page is None:
+    # Get the page fixture if available (either streamlit_page or logged_in_page)
+    page = None
+    for fixture_name in ["logged_in_page", "streamlit_page"]:
+        if fixture_name in request.fixturenames:
+            try:
+                page = request.getfixturevalue(fixture_name)
+                break
+            except Exception:
+                pass
+
+    if page is None:
         return
 
     if hasattr(request.node, "rep_call") and request.node.rep_call.failed:
         screenshots_dir = Path("reports/screenshots")
         screenshots_dir.mkdir(parents=True, exist_ok=True)
         test_name = request.node.name.replace("/", "_").replace("::", "_")
-        streamlit_page.screenshot(path=str(screenshots_dir / f"{test_name}.png"), full_page=True)
+        try:
+            page.screenshot(path=str(screenshots_dir / f"{test_name}.png"), full_page=True)
+        except Exception:
+            pass  # Page may already be closed

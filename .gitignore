@@ -56,3 +56,6 @@ test-results/
 .pip-cache/
 .mypy_cache/
 .ruff_cache/
+
+# Research docs (not tracked)
+docs/research/
