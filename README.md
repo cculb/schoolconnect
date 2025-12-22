@@ -213,7 +213,6 @@ The database includes 13 pre-built views for common queries:
 | `v_missing_assignments` | All missing assignments with details |
 | `v_grade_trends` | Grade progression Q1 -> Q2 -> S1 -> Q3 -> Q4 -> S2 |
 | `v_attendance_alerts` | Students with attendance below 95% |
-| `v_attendance_summary` | Overall attendance statistics per student |
 | `v_upcoming_assignments` | Assignments due in next 14 days |
 | `v_assignment_completion_rate` | Completion rates by student and course |
 | `v_student_summary` | High-level summary per student |
