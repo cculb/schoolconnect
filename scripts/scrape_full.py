@@ -545,12 +545,8 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Scrape PowerSchool parent portal")
-    parser.add_argument(
-        "--headless", action="store_true", help="Run browser in headless mode"
-    )
-    parser.add_argument(
-        "--student", "-s", type=str, help="Scrape specific student only"
-    )
+    parser.add_argument("--headless", action="store_true", help="Run browser in headless mode")
+    parser.add_argument("--student", "-s", type=str, help="Scrape specific student only")
     args = parser.parse_args()
 
     run_full_scrape(headless=args.headless, student_name=args.student)

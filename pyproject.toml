@@ -78,6 +78,9 @@ target-version = "py312"
 select = ["E", "F", "I", "W"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+"scripts/*.py" = ["E402"]  # Allow imports after sys.path modification
+
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
